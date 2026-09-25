@@ -12,5 +12,6 @@ data class StaffEntity(
     val role: String = "STAFF",
     val dailyWage: Double = 0.0,
     val joinDate: String = "",
+    val photoPath: String = "",
     val isActive: Boolean = true
 )

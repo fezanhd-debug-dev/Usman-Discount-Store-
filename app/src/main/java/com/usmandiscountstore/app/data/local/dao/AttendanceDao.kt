@@ -15,14 +15,11 @@ interface AttendanceDao {
     @Query("SELECT * FROM attendance WHERE staffId = :staffId AND date = :date LIMIT 1")
     suspend fun getByStaffAndDate(staffId: Long, date: String): AttendanceEntity?
 
+    @Query("SELECT * FROM attendance WHERE staffId = :staffId AND date LIKE :monthLike ORDER BY date ASC")
+    suspend fun getStaffMonthly(staffId: Long, monthLike: String): List<AttendanceEntity>
+
     @Query("SELECT COUNT(*) FROM attendance WHERE staffId = :staffId AND status = 'PRESENT'")
     suspend fun countPresent(staffId: Long): Int
-
-    @Query("SELECT COUNT(*) FROM attendance WHERE staffId = :staffId AND status = 'LEAVE'")
-    suspend fun countLeave(staffId: Long): Int
-
-    @Query("SELECT COUNT(*) FROM attendance WHERE staffId = :staffId AND status = 'ABSENT'")
-    suspend fun countAbsent(staffId: Long): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(attendance: AttendanceEntity): Long

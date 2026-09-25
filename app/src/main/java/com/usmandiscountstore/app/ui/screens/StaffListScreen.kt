@@ -15,19 +15,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.usmandiscountstore.app.data.local.AppDatabase
 import com.usmandiscountstore.app.data.local.entity.StaffEntity
 import com.usmandiscountstore.app.data.repository.StaffRepository
 import com.usmandiscountstore.app.ui.theme.*
 import kotlinx.coroutines.launch
+import java.io.File
 import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,6 +93,7 @@ fun StaffListScreen(onBack: () -> Unit) {
                         onDelete = { confirmDelete = staff }
                     )
                 }
+                item { CopyrightFooter() }
                 item { Spacer(Modifier.height(80.dp)) }
             }
         }
@@ -120,9 +123,7 @@ fun StaffListScreen(onBack: () -> Unit) {
                     scope.launch { repo.deactivate(staff.id); confirmDelete = null }
                 }) { Text("Haan", color = Color(0xFFDC2626)) }
             },
-            dismissButton = {
-                TextButton(onClick = { confirmDelete = null }) { Text("Nahi") }
-            }
+            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("Nahi") } }
         )
     }
 }
@@ -151,10 +152,19 @@ private fun StaffCard(staff: StaffEntity, onEdit: () -> Unit, onDelete: () -> Un
                 modifier = Modifier.size(50.dp).clip(CircleShape).background(roleColor.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    staff.name.firstOrNull()?.toString()?.uppercase() ?: "?",
-                    fontSize = 22.sp, fontWeight = FontWeight.Bold, color = roleColor
-                )
+                if (staff.photoPath.isNotEmpty() && File(staff.photoPath).exists()) {
+                    AsyncImage(
+                        model = File(staff.photoPath),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize().clip(CircleShape)
+                    )
+                } else {
+                    Text(
+                        staff.name.firstOrNull()?.toString()?.uppercase() ?: "?",
+                        fontSize = 22.sp, fontWeight = FontWeight.Bold, color = roleColor
+                    )
+                }
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
@@ -162,10 +172,8 @@ private fun StaffCard(staff: StaffEntity, onEdit: () -> Unit, onDelete: () -> Un
                     Text(staff.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextDark)
                     Spacer(Modifier.width(8.dp))
                     Surface(shape = RoundedCornerShape(4.dp), color = roleColor) {
-                        Text(
-                            roleText, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
+                        Text(roleText, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                     }
                 }
                 Spacer(Modifier.height(4.dp))
@@ -198,49 +206,73 @@ private fun AddEditStaffDialog(
     var designation by remember { mutableStateOf(initial?.designation ?: "") }
     var role by remember { mutableStateOf(initial?.role ?: "STAFF") }
     var wageText by remember { mutableStateOf(initial?.dailyWage?.toInt()?.toString() ?: "") }
+    var photoPath by remember { mutableStateOf(initial?.photoPath ?: "") }
     var error by remember { mutableStateOf<String?>(null) }
+    var showCamera by remember { mutableStateOf(false) }
 
     val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+
+    if (showCamera) {
+        CameraScreen(
+            title = "Staff Photo Capture",
+            onPhotoCaptured = { file ->
+                photoPath = file.absolutePath
+                showCamera = false
+            },
+            onBack = { showCamera = false }
+        )
+        return
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (initial == null) "Naya Staff Add Karein" else "Staff Edit Karein", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = name, onValueChange = { name = it },
-                    label = { Text("Naam *") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = phone, onValueChange = { phone = it },
+                // Photo section
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier.size(70.dp).clip(CircleShape).background(BrandGreenLight),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (photoPath.isNotEmpty() && File(photoPath).exists()) {
+                            AsyncImage(
+                                model = File(photoPath),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize().clip(CircleShape)
+                            )
+                        } else {
+                            Icon(Icons.Default.Person, null, tint = BrandGreen, modifier = Modifier.size(34.dp))
+                        }
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Button(
+                        onClick = { showCamera = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = BrandGreen)
+                    ) {
+                        Icon(Icons.Default.CameraAlt, null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (photoPath.isEmpty()) "Photo Lein" else "Change Photo", fontSize = 12.sp)
+                    }
+                }
+
+                OutlinedTextField(value = name, onValueChange = { name = it },
+                    label = { Text("Naam *") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = phone, onValueChange = { phone = it },
                     label = { Text("Mobile Number") }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = designation, onValueChange = { designation = it },
-                    label = { Text("Designation (Cashier etc.)") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = wageText, onValueChange = { wageText = it.filter { c -> c.isDigit() } },
+                    modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = designation, onValueChange = { designation = it },
+                    label = { Text("Designation") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = wageText, onValueChange = { wageText = it.filter { c -> c.isDigit() } },
                     label = { Text("Daily Wage (Rs.)") }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                    modifier = Modifier.fillMaxWidth())
                 Text("Role:", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = role == "STAFF",
-                        onClick = { role = "STAFF" },
-                        label = { Text("Staff") }
-                    )
-                    FilterChip(
-                        selected = role == "MODERATOR",
-                        onClick = { role = "MODERATOR" },
-                        label = { Text("Moderator") }
-                    )
+                    FilterChip(selected = role == "STAFF", onClick = { role = "STAFF" }, label = { Text("Staff") })
+                    FilterChip(selected = role == "MODERATOR", onClick = { role = "MODERATOR" }, label = { Text("Moderator") })
                 }
                 if (error != null) Text(error!!, color = Color.Red, fontSize = 12.sp)
             }
@@ -248,22 +280,21 @@ private fun AddEditStaffDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (name.isBlank()) { error = "Naam zaroori hai"; return@Button }
+                    if (name.isBlank()) { error = "Naam zaroori"; return@Button }
                     val wage = wageText.toDoubleOrNull() ?: 0.0
                     val entity = (initial ?: StaffEntity(name = name, joinDate = today)).copy(
                         name = name.trim(),
                         phone = phone.trim(),
                         designation = designation.trim(),
                         role = role,
-                        dailyWage = wage
+                        dailyWage = wage,
+                        photoPath = photoPath
                     )
                     onSave(entity)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = BrandGreen)
             ) { Text("Save") }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }

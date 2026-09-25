@@ -32,6 +32,7 @@ import com.usmandiscountstore.app.util.SecurityPreferences
 import com.usmandiscountstore.app.util.WhatsAppHelper
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -57,107 +58,100 @@ fun AttendanceScreen(onBack: () -> Unit) {
     var statusMsg by remember { mutableStateOf<String?>(null) }
     var isChecking by remember { mutableStateOf(false) }
 
+    // Which staff is being camera-captured for PRESENT
+    var cameraForStaff by remember { mutableStateOf<StaffEntity?>(null) }
+
     var hasLocationPerm by remember {
         mutableStateOf(
-            ContextCompat.checkSelfPermission(
-                context, Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED
         )
     }
 
     val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { result ->
-        hasLocationPerm = result[Manifest.permission.ACCESS_FINE_LOCATION] == true
-    }
+    ) { r -> hasLocationPerm = r[Manifest.permission.ACCESS_FINE_LOCATION] == true }
 
     LaunchedEffect(Unit) {
-        if (!hasLocationPerm) {
-            permLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
-        }
+        if (!hasLocationPerm) permLauncher.launch(
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+        )
         staffRepo.getAllActive().collectLatest { staffList = it }
         attendanceDao.getByDate(today).collectLatest { todayAttendance = it }
     }
 
-    fun getStatusFor(staffId: Long): AttendanceEntity? =
-        todayAttendance.firstOrNull { it.staffId == staffId }
+    fun getStatusFor(staffId: Long) = todayAttendance.firstOrNull { it.staffId == staffId }
 
-    suspend fun doMark(staff: StaffEntity, status: String): Boolean {
-        if (status == "PRESENT") {
-            if (!hasLocationPerm) return false
-            val loc = LocationHelper.getCurrentLocation(context) ?: return false
-            val settings = settingsDao.get()
-            val storeLat = settings?.latitude ?: 29.6974
-            val storeLon = settings?.longitude ?: 72.5518
-            val radius = settings?.geofenceRadiusMeters ?: 30f
-            val dist = LocationHelper.distanceTo(loc.latitude, loc.longitude, storeLat, storeLon)
-            if (dist > radius) {
-                statusMsg = "❌ Aap dukan se ${dist.toInt()}m door hain. Sirf ${radius.toInt()}m ke andar hazri lagegi."
-                return false
-            }
-        }
-        val existing = attendanceDao.getByStaffAndDate(staff.id, today)
-        val entity = existing?.copy(
-            status = status,
-            checkInTime = if (status == "PRESENT" || status == "HALF_DAY") todayTime else existing.checkInTime,
-            markedBy = markerName
-        ) ?: AttendanceEntity(
-            staffId = staff.id,
-            staffName = staff.name,
-            date = today,
-            status = status,
-            checkInTime = if (status == "PRESENT" || status == "HALF_DAY") todayTime else "",
-            markedBy = markerName
-        )
-        attendanceDao.insert(entity)
-        return true
-    }
-
-    fun markAttendance(staff: StaffEntity, status: String) {
+    fun markAttendance(staff: StaffEntity, status: String, selfiePath: String = "") {
         scope.launch {
             isChecking = true
             statusMsg = null
-            val ok = doMark(staff, status)
-            if (ok) {
-                statusMsg = "✅ ${staff.name} ki ${status.lowercase().replace("_"," ")} darj ho gayi"
-                val settings = settingsDao.get()
-                if (settings?.alertEnabled == true && settings.adminWhatsapp.isNotBlank()) {
-                    val statusText = when (status) {
-                        "PRESENT" -> "Hazir"
-                        "LEAVE" -> "Chutti"
-                        "ABSENT" -> "Gair Hazir"
-                        "HALF_DAY" -> "Half Day"
-                        else -> status
-                    }
-                    val msg = "🏪 Usman Discount Store\n\n📋 Hazri Alert\n👤 ${staff.name}\n✅ Status: $statusText\n⏰ Time: $todayTime\n📅 Date: $today\n✍️ Marked by: $markerName\n\n© Mr.DHooM 4K"
-                    WhatsAppHelper.sendAlert(context, settings.adminWhatsapp, msg)
+
+            if (status == "PRESENT" || status == "HALF_DAY") {
+                if (!hasLocationPerm) {
+                    statusMsg = "❌ Location permission chahiye"
+                    isChecking = false; return@launch
+                }
+                val loc = LocationHelper.getCurrentLocation(context)
+                if (loc == null) {
+                    statusMsg = "❌ GPS on karo"
+                    isChecking = false; return@launch
+                }
+                val s = settingsDao.get()
+                val storeLat = s?.latitude ?: 29.6974
+                val storeLon = s?.longitude ?: 72.5518
+                val radius = s?.geofenceRadiusMeters ?: 30f
+                val dist = LocationHelper.distanceTo(loc.latitude, loc.longitude, storeLat, storeLon)
+                if (dist > radius) {
+                    statusMsg = "❌ Aap dukan se ${dist.toInt()}m door hain"
+                    isChecking = false; return@launch
                 }
             }
+
+            val existing = attendanceDao.getByStaffAndDate(staff.id, today)
+            val entity = existing?.copy(
+                status = status,
+                checkInTime = if (status == "PRESENT" || status == "HALF_DAY") todayTime else existing.checkInTime,
+                selfiePath = selfiePath.ifEmpty { existing.selfiePath },
+                markedBy = markerName
+            ) ?: AttendanceEntity(
+                staffId = staff.id,
+                staffName = staff.name,
+                date = today,
+                status = status,
+                checkInTime = if (status == "PRESENT" || status == "HALF_DAY") todayTime else "",
+                selfiePath = selfiePath,
+                markedBy = markerName
+            )
+            attendanceDao.insert(entity)
+            statusMsg = "✅ ${staff.name} ki hazri darj"
+
+            val s = settingsDao.get()
+            if (s?.alertEnabled == true && s.adminWhatsapp.isNotBlank()) {
+                val statusText = when (status) {
+                    "PRESENT" -> "Hazir"; "LEAVE" -> "Chutti"
+                    "ABSENT" -> "Gair Hazir"; "HALF_DAY" -> "Half Day"
+                    else -> status
+                }
+                val msg = "🏪 Usman Discount Store\n\n📋 Hazri Alert\n👤 ${staff.name}\n✅ $statusText\n⏰ $todayTime\n📅 $today\n✍️ $markerName\n\n© Mr.DHooM 4K"
+                WhatsAppHelper.sendAlert(context, s.adminWhatsapp, msg)
+            }
             isChecking = false
         }
     }
 
-    fun markAllHalfDay() {
-        scope.launch {
-            isChecking = true
-            statusMsg = null
-            var count = 0
-            for (s in staffList) {
-                if (doMark(s, "HALF_DAY")) count++
-            }
-            statusMsg = "✅ $count staff ko Half Day mark kiya gaya"
-            val settings = settingsDao.get()
-            if (settings?.alertEnabled == true && settings.adminWhatsapp.isNotBlank()) {
-                val msg = "🏪 Usman Discount Store\n\n📋 Bulk Half Day Alert\n👥 $count staff\n📅 Date: $today\n⏰ Time: $todayTime\n✍️ Marked by: $markerName\n\n© Mr.DHooM 4K"
-                WhatsAppHelper.sendAlert(context, settings.adminWhatsapp, msg)
-            }
-            isChecking = false
-        }
+    // If camera is open for a staff — show camera screen
+    cameraForStaff?.let { staff ->
+        CameraScreen(
+            title = "Hazri — ${staff.name}",
+            onPhotoCaptured = { file ->
+                val path = file.absolutePath
+                cameraForStaff = null
+                markAttendance(staff, "PRESENT", path)
+            },
+            onBack = { cameraForStaff = null }
+        )
+        return
     }
 
     Scaffold(
@@ -174,11 +168,6 @@ fun AttendanceScreen(onBack: () -> Unit) {
                         Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
                     }
                 },
-                actions = {
-                    TextButton(onClick = { markAllHalfDay() }) {
-                        Text("Half Day All", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = BrandGreen)
             )
         },
@@ -186,17 +175,13 @@ fun AttendanceScreen(onBack: () -> Unit) {
     ) { pad ->
         Column(Modifier.fillMaxSize().padding(pad).padding(horizontal = 16.dp)) {
             Spacer(Modifier.height(8.dp))
-
             if (isChecking) LinearProgressIndicator(Modifier.fillMaxWidth())
-
             statusMsg?.let {
-                Card(
-                    shape = RoundedCornerShape(12.dp),
+                Card(shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = if (it.startsWith("✅")) Color(0xFFDCFCE7) else Color(0xFFFEE2E2)
                     ),
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
-                ) {
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                     Text(it, Modifier.padding(12.dp), fontSize = 13.sp,
                         color = if (it.startsWith("✅")) Color(0xFF166534) else Color(0xFF991B1B))
                 }
@@ -204,11 +189,7 @@ fun AttendanceScreen(onBack: () -> Unit) {
 
             if (staffList.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.People, null, tint = TextGray, modifier = Modifier.size(64.dp))
-                        Spacer(Modifier.height(12.dp))
-                        Text("Koi staff nahi hai", color = TextGray)
-                    }
+                    Text("Koi staff nahi hai", color = TextGray)
                 }
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -217,7 +198,8 @@ fun AttendanceScreen(onBack: () -> Unit) {
                         AttendanceCard(
                             staff = staff,
                             attendance = att,
-                            onMark = { status -> markAttendance(staff, status) }
+                            onMarkPresent = { cameraForStaff = staff },   // camera open
+                            onMarkOther = { status -> markAttendance(staff, status) }
                         )
                     }
                     item { CopyrightFooter() }
@@ -232,7 +214,8 @@ fun AttendanceScreen(onBack: () -> Unit) {
 private fun AttendanceCard(
     staff: StaffEntity,
     attendance: AttendanceEntity?,
-    onMark: (String) -> Unit
+    onMarkPresent: () -> Unit,
+    onMarkOther: (String) -> Unit
 ) {
     val (statusColor, statusText) = when (attendance?.status) {
         "PRESENT" -> BrandGreen to "Hazir"
@@ -243,23 +226,16 @@ private fun AttendanceCard(
         else -> TextGray to attendance.status
     }
 
-    Card(
-        shape = RoundedCornerShape(14.dp),
+    Card(shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
+        modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier.size(46.dp).clip(CircleShape)
-                        .background(statusColor.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        staff.name.firstOrNull()?.toString()?.uppercase() ?: "?",
-                        fontSize = 20.sp, fontWeight = FontWeight.Bold, color = statusColor
-                    )
+                Box(modifier = Modifier.size(46.dp).clip(CircleShape).background(statusColor.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center) {
+                    Text(staff.name.firstOrNull()?.toString()?.uppercase() ?: "?",
+                        fontSize = 20.sp, fontWeight = FontWeight.Bold, color = statusColor)
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
@@ -280,20 +256,23 @@ private fun AttendanceCard(
 
             Spacer(Modifier.height(10.dp))
 
-            // 4 buttons: Hazir | Half Day | Chutti | Gair
             Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 if (attendance?.status != "PRESENT") {
                     Button(
-                        onClick = { onMark("PRESENT") },
+                        onClick = onMarkPresent,
                         modifier = Modifier.weight(1f).height(36.dp),
                         shape = RoundedCornerShape(9.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
                         contentPadding = PaddingValues(horizontal = 2.dp)
-                    ) { Text("Hazir", fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+                    ) {
+                        Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(3.dp))
+                        Text("Hazir", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
                 if (attendance?.status != "HALF_DAY") {
                     Button(
-                        onClick = { onMark("HALF_DAY") },
+                        onClick = { onMarkOther("HALF_DAY") },
                         modifier = Modifier.weight(1f).height(36.dp),
                         shape = RoundedCornerShape(9.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
@@ -302,7 +281,7 @@ private fun AttendanceCard(
                 }
                 if (attendance?.status != "LEAVE") {
                     OutlinedButton(
-                        onClick = { onMark("LEAVE") },
+                        onClick = { onMarkOther("LEAVE") },
                         modifier = Modifier.weight(1f).height(36.dp),
                         shape = RoundedCornerShape(9.dp),
                         contentPadding = PaddingValues(horizontal = 2.dp)
@@ -310,7 +289,7 @@ private fun AttendanceCard(
                 }
                 if (attendance?.status != "ABSENT") {
                     OutlinedButton(
-                        onClick = { onMark("ABSENT") },
+                        onClick = { onMarkOther("ABSENT") },
                         modifier = Modifier.weight(1f).height(36.dp),
                         shape = RoundedCornerShape(9.dp),
                         contentPadding = PaddingValues(horizontal = 2.dp)

@@ -16,6 +16,7 @@ data class AttendanceEntity(
     val status: String = "PRESENT",
     val checkInTime: String = "",
     val checkOutTime: String = "",
+    val selfiePath: String = "",
     val note: String = "",
     val markedBy: String = "",
     val markedAt: Long = System.currentTimeMillis()
