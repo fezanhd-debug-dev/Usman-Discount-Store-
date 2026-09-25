@@ -31,6 +31,7 @@ import java.util.Locale
 fun DashboardScreen(
     onNavigateStaff: () -> Unit,
     onNavigateAttendance: () -> Unit,
+    onNavigateAdvance: () -> Unit,
     onNavigateSettings: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -64,17 +65,13 @@ fun DashboardScreen(
             Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Card(
-                shape = RoundedCornerShape(18.dp),
+            Card(shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+                modifier = Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier.size(54.dp).clip(CircleShape).background(BrandGreenLight),
-                        contentAlignment = Alignment.Center
-                    ) {
+                    Box(modifier = Modifier.size(54.dp).clip(CircleShape).background(BrandGreenLight),
+                        contentAlignment = Alignment.Center) {
                         Text(userName.firstOrNull()?.toString() ?: "U",
                             fontSize = 24.sp, fontWeight = FontWeight.Bold, color = BrandGreen)
                     }
@@ -85,11 +82,9 @@ fun DashboardScreen(
                         Spacer(Modifier.height(4.dp))
                         Surface(shape = RoundedCornerShape(6.dp),
                             color = if (isAdmin) BrandGreen else BrandOrange) {
-                            Text(
-                                if (isAdmin) "ADMIN ACCESS" else "MODERATOR ACCESS",
+                            Text(if (isAdmin) "ADMIN ACCESS" else "MODERATOR ACCESS",
                                 color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
                         }
                     }
                 }
@@ -97,11 +92,9 @@ fun DashboardScreen(
 
             Text(todayDate, fontSize = 12.sp, color = TextGray, modifier = Modifier.padding(start = 4.dp))
 
-            Card(
-                shape = RoundedCornerShape(14.dp),
+            Card(shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(containerColor = BrandGreenLight),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+                modifier = Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.CheckCircle, null, tint = BrandGreen, modifier = Modifier.size(24.dp))
                     Spacer(Modifier.width(10.dp))
@@ -115,56 +108,46 @@ fun DashboardScreen(
             Text("Store Modules", fontWeight = FontWeight.Bold, color = TextDark, fontSize = 15.sp,
                 modifier = Modifier.padding(top = 8.dp))
 
-            ModuleCard("Hazri Lagao", "Sirf store ke andar GPS se hazri",
-                Icons.Default.CheckCircle, BrandGreen, onNavigateAttendance)
+            ModuleCard("Hazri Lagao", "GPS + Half Day option", Icons.Default.CheckCircle, BrandGreen, onNavigateAttendance)
 
             if (isAdmin) {
-                ModuleCard("Mulazimeen Management", "Staff add / edit / delete",
-                    Icons.Default.People, Color(0xFF2563EB), onNavigateStaff)
+                ModuleCard("Mulazimeen Management", "Staff add / edit / delete", Icons.Default.People, Color(0xFF2563EB), onNavigateStaff)
             } else {
-                ModuleCard("Mulazimeen List", "Staff dekho, hazri history",
-                    Icons.Default.People, Color(0xFF2563EB), onNavigateStaff)
+                ModuleCard("Mulazimeen List", "Staff dekho", Icons.Default.People, Color(0xFF2563EB), onNavigateStaff)
             }
 
-            ModuleCard("Advance & Peshgi Khata", "Udhaar aur cash peshgi",
-                Icons.Default.AccountBalanceWallet, BrandOrange) {}
+            ModuleCard("Advance & Peshgi Khata", "Udhaar aur cash peshgi", Icons.Default.AccountBalanceWallet, BrandOrange, onNavigateAdvance)
 
             if (isAdmin) {
-                ModuleCard("Salary Slips & Payroll", "Mahana tankhwah",
-                    Icons.Default.ReceiptLong, Color(0xFF7C3AED)) {}
-                ModuleCard("Admin Settings", "WhatsApp alerts + geofence",
-                    Icons.Default.Tune, Color(0xFF4B5563), onNavigateSettings)
+                ModuleCard("Salary Slips & Payroll", "Mahana tankhwah", Icons.Default.ReceiptLong, Color(0xFF7C3AED)) {}
+                ModuleCard("Admin Settings", "WhatsApp + password change", Icons.Default.Tune, Color(0xFF4B5563), onNavigateSettings)
             }
 
             if (!isAdmin) {
-                Card(
-                    shape = RoundedCornerShape(12.dp),
+                Card(shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                    modifier = Modifier.fillMaxWidth()) {
                     Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Info, null, tint = BrandOrange)
                         Spacer(Modifier.width(8.dp))
-                        Text("Moderator mode: Salary aur Settings Admin ke paas mehfooz hain.",
+                        Text("Moderator: Salary aur Settings Admin ke paas hain.",
                             fontSize = 12.sp, color = Color(0xFFB45309))
                     }
                 }
             }
 
+            CopyrightFooter()
             Spacer(Modifier.height(20.dp))
         }
     }
 }
 
 @Composable
-private fun ModuleCard(title: String, subtitle: String, icon: ImageVector,
-                       tint: Color, onClick: () -> Unit) {
-    Card(
-        shape = RoundedCornerShape(14.dp),
+private fun ModuleCard(title: String, subtitle: String, icon: ImageVector, tint: Color, onClick: () -> Unit) {
+    Card(shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        modifier = Modifier.fillMaxWidth().clickable { onClick() }
-    ) {
+        modifier = Modifier.fillMaxWidth().clickable { onClick() }) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(modifier = Modifier.size(48.dp), shape = RoundedCornerShape(12.dp),
                 color = tint.copy(alpha = 0.12f)) {

@@ -12,6 +12,7 @@ object Routes {
     const val STAFF_LIST = "staff_list"
     const val ATTENDANCE = "attendance"
     const val ADMIN_SETTINGS = "admin_settings"
+    const val ADVANCE = "advance"
 }
 
 @Composable
@@ -25,22 +26,20 @@ fun AppNavGraph(navController: NavHostController) {
                 }
             })
         }
-
         composable(Routes.DASHBOARD) {
             DashboardScreen(
                 onNavigateStaff = { navController.navigate(Routes.STAFF_LIST) },
                 onNavigateAttendance = { navController.navigate(Routes.ATTENDANCE) },
+                onNavigateAdvance = { navController.navigate(Routes.ADVANCE) },
                 onNavigateSettings = { navController.navigate(Routes.ADMIN_SETTINGS) },
                 onLogout = {
-                    navController.navigate(Routes.LOGIN) {
-                        popUpTo(0) { inclusive = true }
-                    }
+                    navController.navigate(Routes.LOGIN) { popUpTo(0) { inclusive = true } }
                 }
             )
         }
-
         composable(Routes.STAFF_LIST) { StaffListScreen(onBack = { navController.popBackStack() }) }
         composable(Routes.ATTENDANCE) { AttendanceScreen(onBack = { navController.popBackStack() }) }
         composable(Routes.ADMIN_SETTINGS) { AdminSettingsScreen(onBack = { navController.popBackStack() }) }
+        composable(Routes.ADVANCE) { AdvanceKhataScreen(onBack = { navController.popBackStack() }) }
     }
 }

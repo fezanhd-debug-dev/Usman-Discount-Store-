@@ -87,68 +87,73 @@ fun AttendanceScreen(onBack: () -> Unit) {
     fun getStatusFor(staffId: Long): AttendanceEntity? =
         todayAttendance.firstOrNull { it.staffId == staffId }
 
+    suspend fun doMark(staff: StaffEntity, status: String): Boolean {
+        if (status == "PRESENT") {
+            if (!hasLocationPerm) return false
+            val loc = LocationHelper.getCurrentLocation(context) ?: return false
+            val settings = settingsDao.get()
+            val storeLat = settings?.latitude ?: 29.6974
+            val storeLon = settings?.longitude ?: 72.5518
+            val radius = settings?.geofenceRadiusMeters ?: 30f
+            val dist = LocationHelper.distanceTo(loc.latitude, loc.longitude, storeLat, storeLon)
+            if (dist > radius) {
+                statusMsg = "❌ Aap dukan se ${dist.toInt()}m door hain. Sirf ${radius.toInt()}m ke andar hazri lagegi."
+                return false
+            }
+        }
+        val existing = attendanceDao.getByStaffAndDate(staff.id, today)
+        val entity = existing?.copy(
+            status = status,
+            checkInTime = if (status == "PRESENT" || status == "HALF_DAY") todayTime else existing.checkInTime,
+            markedBy = markerName
+        ) ?: AttendanceEntity(
+            staffId = staff.id,
+            staffName = staff.name,
+            date = today,
+            status = status,
+            checkInTime = if (status == "PRESENT" || status == "HALF_DAY") todayTime else "",
+            markedBy = markerName
+        )
+        attendanceDao.insert(entity)
+        return true
+    }
+
     fun markAttendance(staff: StaffEntity, status: String) {
         scope.launch {
             isChecking = true
             statusMsg = null
-
-            if (status == "PRESENT") {
-                if (!hasLocationPerm) {
-                    statusMsg = "❌ Location permission chahiye"
-                    isChecking = false
-                    return@launch
-                }
-                val loc = LocationHelper.getCurrentLocation(context)
-                if (loc == null) {
-                    statusMsg = "❌ Location nahi mil rahi. GPS on karo."
-                    isChecking = false
-                    return@launch
-                }
+            val ok = doMark(staff, status)
+            if (ok) {
+                statusMsg = "✅ ${staff.name} ki ${status.lowercase().replace("_"," ")} darj ho gayi"
                 val settings = settingsDao.get()
-                val storeLat = settings?.latitude ?: 29.6974
-                val storeLon = settings?.longitude ?: 72.5518
-                val radius = settings?.geofenceRadiusMeters ?: 30f
-                val dist = LocationHelper.distanceTo(loc.latitude, loc.longitude, storeLat, storeLon)
-                if (dist > radius) {
-                    statusMsg = "❌ Aap dukan se ${dist.toInt()}m door hain. Sirf ${radius.toInt()}m ke andar hazri lagegi."
-                    isChecking = false
-                    return@launch
+                if (settings?.alertEnabled == true && settings.adminWhatsapp.isNotBlank()) {
+                    val statusText = when (status) {
+                        "PRESENT" -> "Hazir"
+                        "LEAVE" -> "Chutti"
+                        "ABSENT" -> "Gair Hazir"
+                        "HALF_DAY" -> "Half Day"
+                        else -> status
+                    }
+                    val msg = "🏪 Usman Discount Store\n\n📋 Hazri Alert\n👤 ${staff.name}\n✅ Status: $statusText\n⏰ Time: $todayTime\n📅 Date: $today\n✍️ Marked by: $markerName\n\n© Mr.DHooM 4K"
+                    WhatsAppHelper.sendAlert(context, settings.adminWhatsapp, msg)
                 }
             }
+            isChecking = false
+        }
+    }
 
-            val existing = attendanceDao.getByStaffAndDate(staff.id, today)
-            val entity = existing?.copy(
-                status = status,
-                checkInTime = if (status == "PRESENT") todayTime else existing.checkInTime,
-                markedBy = markerName
-            ) ?: AttendanceEntity(
-                staffId = staff.id,
-                staffName = staff.name,
-                date = today,
-                status = status,
-                checkInTime = if (status == "PRESENT") todayTime else "",
-                markedBy = markerName
-            )
-
-            attendanceDao.insert(entity)
-            statusMsg = "✅ ${staff.name} ki ${status.lowercase()} darj ho gayi"
-
+    fun markAllHalfDay() {
+        scope.launch {
+            isChecking = true
+            statusMsg = null
+            var count = 0
+            for (s in staffList) {
+                if (doMark(s, "HALF_DAY")) count++
+            }
+            statusMsg = "✅ $count staff ko Half Day mark kiya gaya"
             val settings = settingsDao.get()
             if (settings?.alertEnabled == true && settings.adminWhatsapp.isNotBlank()) {
-                val statusText = when (status) {
-                    "PRESENT" -> "Hazir"
-                    "LEAVE" -> "Chutti"
-                    "ABSENT" -> "Gair Hazir"
-                    "HALF_DAY" -> "Half Day"
-                    else -> status
-                }
-                val msg = "🏪 Usman Discount Store\n\n" +
-                        "📋 Hazri Alert\n" +
-                        "👤 ${staff.name}\n" +
-                        "✅ Status: $statusText\n" +
-                        "⏰ Time: $todayTime\n" +
-                        "📅 Date: $today\n" +
-                        "✍️ Marked by: $markerName"
+                val msg = "🏪 Usman Discount Store\n\n📋 Bulk Half Day Alert\n👥 $count staff\n📅 Date: $today\n⏰ Time: $todayTime\n✍️ Marked by: $markerName\n\n© Mr.DHooM 4K"
                 WhatsAppHelper.sendAlert(context, settings.adminWhatsapp, msg)
             }
             isChecking = false
@@ -169,17 +174,20 @@ fun AttendanceScreen(onBack: () -> Unit) {
                         Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
                     }
                 },
+                actions = {
+                    TextButton(onClick = { markAllHalfDay() }) {
+                        Text("Half Day All", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = BrandGreen)
             )
         },
         containerColor = BackgroundLight
     ) { pad ->
-        Column(
-            Modifier.fillMaxSize().padding(pad).padding(16.dp)
-        ) {
-            if (isChecking) {
-                LinearProgressIndicator(Modifier.fillMaxWidth())
-            }
+        Column(Modifier.fillMaxSize().padding(pad).padding(horizontal = 16.dp)) {
+            Spacer(Modifier.height(8.dp))
+
+            if (isChecking) LinearProgressIndicator(Modifier.fillMaxWidth())
 
             statusMsg?.let {
                 Card(
@@ -187,14 +195,10 @@ fun AttendanceScreen(onBack: () -> Unit) {
                     colors = CardDefaults.cardColors(
                         containerColor = if (it.startsWith("✅")) Color(0xFFDCFCE7) else Color(0xFFFEE2E2)
                     ),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
                 ) {
-                    Text(
-                        it,
-                        Modifier.padding(12.dp),
-                        fontSize = 13.sp,
-                        color = if (it.startsWith("✅")) Color(0xFF166534) else Color(0xFF991B1B)
-                    )
+                    Text(it, Modifier.padding(12.dp), fontSize = 13.sp,
+                        color = if (it.startsWith("✅")) Color(0xFF166534) else Color(0xFF991B1B))
                 }
             }
 
@@ -204,7 +208,6 @@ fun AttendanceScreen(onBack: () -> Unit) {
                         Icon(Icons.Default.People, null, tint = TextGray, modifier = Modifier.size(64.dp))
                         Spacer(Modifier.height(12.dp))
                         Text("Koi staff nahi hai", color = TextGray)
-                        Text("Pehle staff add karo", fontSize = 12.sp, color = TextGray)
                     }
                 }
             } else {
@@ -217,6 +220,7 @@ fun AttendanceScreen(onBack: () -> Unit) {
                             onMark = { status -> markAttendance(staff, status) }
                         )
                     }
+                    item { CopyrightFooter() }
                     item { Spacer(Modifier.height(20.dp)) }
                 }
             }
@@ -232,9 +236,9 @@ private fun AttendanceCard(
 ) {
     val (statusColor, statusText) = when (attendance?.status) {
         "PRESENT" -> BrandGreen to "Hazir"
-        "LEAVE" -> BrandOrange to "Chutti"
-        "ABSENT" -> Color(0xFFDC2626) to "Gair Hazir"
         "HALF_DAY" -> Color(0xFF7C3AED) to "Half Day"
+        "LEAVE" -> BrandOrange to "Chutti"
+        "ABSENT" -> Color(0xFFDC2626) to "Gair"
         null -> TextGray to "Nahi Lagi"
         else -> TextGray to attendance.status
     }
@@ -263,45 +267,54 @@ private fun AttendanceCard(
                     Text(staff.designation.ifEmpty { staff.role }, fontSize = 11.sp, color = TextGray)
                 }
                 Surface(shape = RoundedCornerShape(6.dp), color = statusColor.copy(alpha = 0.15f)) {
-                    Text(
-                        statusText, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = statusColor,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
+                    Text(statusText, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = statusColor,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
                 }
             }
 
             if (attendance?.checkInTime?.isNotEmpty() == true) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(6.dp))
                 Text("⏰ ${attendance.checkInTime} • ✍️ ${attendance.markedBy}",
                     fontSize = 11.sp, color = TextGray)
             }
 
             Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+
+            // 4 buttons: Hazir | Half Day | Chutti | Gair
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 if (attendance?.status != "PRESENT") {
                     Button(
                         onClick = { onMark("PRESENT") },
-                        modifier = Modifier.weight(1f).height(38.dp),
-                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(1f).height(36.dp),
+                        shape = RoundedCornerShape(9.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
-                        contentPadding = PaddingValues(horizontal = 6.dp)
-                    ) { Text("Hazir", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                        contentPadding = PaddingValues(horizontal = 2.dp)
+                    ) { Text("Hazir", fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+                }
+                if (attendance?.status != "HALF_DAY") {
+                    Button(
+                        onClick = { onMark("HALF_DAY") },
+                        modifier = Modifier.weight(1f).height(36.dp),
+                        shape = RoundedCornerShape(9.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
+                        contentPadding = PaddingValues(horizontal = 2.dp)
+                    ) { Text("Half", fontSize = 10.sp, fontWeight = FontWeight.Bold) }
                 }
                 if (attendance?.status != "LEAVE") {
                     OutlinedButton(
                         onClick = { onMark("LEAVE") },
-                        modifier = Modifier.weight(1f).height(38.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 6.dp)
-                    ) { Text("Chutti", fontSize = 11.sp, color = BrandOrange) }
+                        modifier = Modifier.weight(1f).height(36.dp),
+                        shape = RoundedCornerShape(9.dp),
+                        contentPadding = PaddingValues(horizontal = 2.dp)
+                    ) { Text("Chutti", fontSize = 10.sp, color = BrandOrange) }
                 }
                 if (attendance?.status != "ABSENT") {
                     OutlinedButton(
                         onClick = { onMark("ABSENT") },
-                        modifier = Modifier.weight(1f).height(38.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 6.dp)
-                    ) { Text("Gair", fontSize = 11.sp, color = Color(0xFFDC2626)) }
+                        modifier = Modifier.weight(1f).height(36.dp),
+                        shape = RoundedCornerShape(9.dp),
+                        contentPadding = PaddingValues(horizontal = 2.dp)
+                    ) { Text("Gair", fontSize = 10.sp, color = Color(0xFFDC2626)) }
                 }
             }
         }

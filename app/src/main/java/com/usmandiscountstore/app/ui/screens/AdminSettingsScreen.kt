@@ -1,6 +1,5 @@
 package com.usmandiscountstore.app.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,11 +15,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.usmandiscountstore.app.data.local.AppDatabase
 import com.usmandiscountstore.app.data.local.entity.StoreSettingsEntity
 import com.usmandiscountstore.app.ui.theme.*
+import com.usmandiscountstore.app.util.PasswordHelper
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,6 +39,11 @@ fun AdminSettingsScreen(onBack: () -> Unit) {
     var radiusText by remember { mutableStateOf("") }
     var whatsapp by remember { mutableStateOf("") }
     var alertEnabled by remember { mutableStateOf(true) }
+
+    var adminPwd by remember { mutableStateOf("") }
+    var modPwd by remember { mutableStateOf("") }
+    var pwdMsg by remember { mutableStateOf<String?>(null) }
+
     var loaded by remember { mutableStateOf(false) }
     var savedMsg by remember { mutableStateOf<String?>(null) }
 
@@ -50,6 +56,8 @@ fun AdminSettingsScreen(onBack: () -> Unit) {
         radiusText = s.geofenceRadiusMeters.toInt().toString()
         whatsapp = s.adminWhatsapp
         alertEnabled = s.alertEnabled
+        adminPwd = PasswordHelper.getAdminPassword(context)
+        modPwd = PasswordHelper.getModeratorPassword(context)
         loaded = true
     }
 
@@ -59,7 +67,7 @@ fun AdminSettingsScreen(onBack: () -> Unit) {
                 title = {
                     Column {
                         Text("Admin Settings", fontWeight = FontWeight.Bold, color = Color.White)
-                        Text("Store aur alerts config", fontSize = 11.sp, color = Color.White.copy(alpha = 0.85f))
+                        Text("Store + Security", fontSize = 11.sp, color = Color.White.copy(alpha = 0.85f))
                     }
                 },
                 navigationIcon = {
@@ -79,76 +87,89 @@ fun AdminSettingsScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             if (savedMsg != null) {
-                Card(
-                    shape = RoundedCornerShape(12.dp),
+                Card(shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFDCFCE7)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                    modifier = Modifier.fillMaxWidth()) {
                     Text(savedMsg!!, Modifier.padding(12.dp), color = Color(0xFF166534), fontSize = 13.sp)
                 }
             }
 
             SectionTitle("🏪 Store Information")
-            OutlinedTextField(
-                value = storeName, onValueChange = { storeName = it },
-                label = { Text("Store Name") }, singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = storeAddress, onValueChange = { storeAddress = it },
-                label = { Text("Address") }, singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            OutlinedTextField(value = storeName, onValueChange = { storeName = it },
+                label = { Text("Store Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = storeAddress, onValueChange = { storeAddress = it },
+                label = { Text("Address") }, singleLine = true, modifier = Modifier.fillMaxWidth())
 
             SectionTitle("📍 Geofence Location")
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = latText, onValueChange = { latText = it },
+                OutlinedTextField(value = latText, onValueChange = { latText = it },
                     label = { Text("Latitude") }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.weight(1f)
-                )
-                OutlinedTextField(
-                    value = lonText, onValueChange = { lonText = it },
+                    modifier = Modifier.weight(1f))
+                OutlinedTextField(value = lonText, onValueChange = { lonText = it },
                     label = { Text("Longitude") }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.weight(1f)
-                )
+                    modifier = Modifier.weight(1f))
             }
-            OutlinedTextField(
-                value = radiusText, onValueChange = { radiusText = it.filter { c -> c.isDigit() } },
-                label = { Text("Geofence Radius (meters)") }, singleLine = true,
+            OutlinedTextField(value = radiusText, onValueChange = { radiusText = it.filter { c -> c.isDigit() } },
+                label = { Text("Radius (meters)") }, singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                supportingText = { Text("Hasilpur counter se itne meter ke andar hazri lagegi") },
-                modifier = Modifier.fillMaxWidth()
-            )
+                modifier = Modifier.fillMaxWidth())
 
             SectionTitle("📱 WhatsApp Alerts")
-            OutlinedTextField(
-                value = whatsapp, onValueChange = { whatsapp = it.filter { c -> c.isDigit() } },
-                label = { Text("Admin WhatsApp Number") },
-                placeholder = { Text("923001234567") },
-                supportingText = { Text("Format: 92XXXXXXXXXX (bina + ya 0 ke)") },
+            OutlinedTextField(value = whatsapp, onValueChange = { whatsapp = it.filter { c -> c.isDigit() } },
+                label = { Text("Admin WhatsApp") }, placeholder = { Text("923001234567") },
+                supportingText = { Text("92XXXXXXXXXX format") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                singleLine = true,
-                leadingIcon = { Icon(Icons.Default.Phone, null, tint = BrandGreen) },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Card(
-                shape = RoundedCornerShape(12.dp),
+                singleLine = true, modifier = Modifier.fillMaxWidth())
+            Card(shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+                modifier = Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Hazri Alerts ON karein", fontWeight = FontWeight.Bold, color = TextDark, fontSize = 14.sp)
-                        Text("Har hazri pe WhatsApp alert bhejega", fontSize = 11.sp, color = TextGray)
+                        Text("Hazri Alerts ON", fontWeight = FontWeight.Bold, color = TextDark, fontSize = 14.sp)
+                        Text("Har hazri pe WhatsApp alert", fontSize = 11.sp, color = TextGray)
                     }
-                    Switch(
-                        checked = alertEnabled, onCheckedChange = { alertEnabled = it },
-                        colors = SwitchDefaults.colors(checkedThumbColor = BrandGreen, checkedTrackColor = BrandGreen.copy(alpha = 0.4f))
-                    )
+                    Switch(checked = alertEnabled, onCheckedChange = { alertEnabled = it },
+                        colors = SwitchDefaults.colors(checkedThumbColor = BrandGreen))
                 }
+            }
+
+            SectionTitle("🔐 Passwords")
+            if (pwdMsg != null) {
+                Card(shape = RoundedCornerShape(10.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFDCFCE7)),
+                    modifier = Modifier.fillMaxWidth()) {
+                    Text(pwdMsg!!, Modifier.padding(10.dp), fontSize = 12.sp, color = Color(0xFF166534))
+                }
+            }
+            OutlinedTextField(value = adminPwd, onValueChange = { adminPwd = it },
+                label = { Text("Admin Password") }, singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = modPwd, onValueChange = { modPwd = it },
+                label = { Text("Moderator Password") }, singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth())
+            Button(
+                onClick = {
+                    if (adminPwd.length < 4 || modPwd.length < 4) {
+                        pwdMsg = "❌ Password kam az kam 4 character"
+                    } else {
+                        PasswordHelper.setAdminPassword(context, adminPwd)
+                        PasswordHelper.setModeratorPassword(context, modPwd)
+                        pwdMsg = "✅ Passwords update ho gaye"
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = BrandOrange)
+            ) {
+                Icon(Icons.Default.Lock, null)
+                Spacer(Modifier.width(8.dp))
+                Text("Passwords Update Karein", fontWeight = FontWeight.Bold)
             }
 
             Spacer(Modifier.height(8.dp))
@@ -166,7 +187,7 @@ fun AdminSettingsScreen(onBack: () -> Unit) {
                             alertEnabled = alertEnabled
                         )
                         dao.save(s)
-                        savedMsg = "✅ Settings save ho gayin"
+                        savedMsg = "✅ Store settings save ho gayin"
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -175,8 +196,10 @@ fun AdminSettingsScreen(onBack: () -> Unit) {
             ) {
                 Icon(Icons.Default.Save, null)
                 Spacer(Modifier.width(8.dp))
-                Text("Save Settings", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text("Save Store Settings", fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
+
+            CopyrightFooter()
             Spacer(Modifier.height(40.dp))
         }
     }
