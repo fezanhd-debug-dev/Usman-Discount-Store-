@@ -46,9 +46,13 @@ fun DashboardScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text("Usman Discount Store", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 17.sp)
-                        Text("Vehari Road, Old Hasilpur", fontSize = 11.sp, color = Color.White.copy(alpha = 0.85f))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        AppLogoSmall(size = 36.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text("Usman Discount Store", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
+                            Text("Vehari Road, Old Hasilpur", fontSize = 10.sp, color = Color.White.copy(alpha = 0.85f))
+                        }
                     }
                 },
                 actions = {

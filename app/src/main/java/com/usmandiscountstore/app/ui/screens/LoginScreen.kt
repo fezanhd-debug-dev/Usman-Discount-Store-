@@ -7,7 +7,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,12 +40,9 @@ fun LoginScreen(onLoginSuccess: (role: String, name: String) -> Unit) {
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Surface(modifier = Modifier.size(80.dp), shape = RoundedCornerShape(20.dp), color = BrandGreenLight) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Store, null, tint = BrandGreen, modifier = Modifier.size(44.dp))
-                }
-            }
-            Spacer(Modifier.height(16.dp))
+            AppLogo(size = 100.dp)
+
+            Spacer(Modifier.height(18.dp))
             Text("Usman Discount Store", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = TextDark)
             Text("Vehari Road, Old Hasilpur", fontSize = 14.sp, color = TextGray)
             Text("Staff Hazri & Khata Management", fontSize = 12.sp, color = BrandGreen, fontWeight = FontWeight.SemiBold)
