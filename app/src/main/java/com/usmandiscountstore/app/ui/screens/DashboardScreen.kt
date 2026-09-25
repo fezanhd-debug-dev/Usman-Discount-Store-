@@ -29,6 +29,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
+    onNavigateSalary: () -> Unit,
     onNavigateStaff: () -> Unit,
     onNavigateAttendance: () -> Unit,
     onNavigateAdvance: () -> Unit,
@@ -123,7 +124,7 @@ fun DashboardScreen(
             ModuleCard("Advance & Peshgi Khata", "Udhaar aur cash peshgi", Icons.Default.AccountBalanceWallet, BrandOrange, onNavigateAdvance)
 
             if (isAdmin) {
-                ModuleCard("Salary Slips & Payroll", "Mahana tankhwah", Icons.Default.ReceiptLong, Color(0xFF7C3AED)) {}
+                ModuleCard("Salary Slips & Payroll", "Mahana tankhwah + PDF", Icons.Default.ReceiptLong, Color(0xFF7C3AED), onNavigateSalary)
                 ModuleCard("Admin Settings", "WhatsApp + password change", Icons.Default.Tune, Color(0xFF4B5563), onNavigateSettings)
             }
 
