@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.UsmanDiscountStore" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#046A38</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSecondary">#FF9800</item>
+        <item name="android:statusBarColor">#03512A</item>
+    </style>
+</resources>
