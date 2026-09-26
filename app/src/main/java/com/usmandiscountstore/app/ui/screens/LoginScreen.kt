@@ -24,6 +24,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.usmandiscountstore.app.ui.theme.*
+import com.usmandiscountstore.app.util.Lang
 import com.usmandiscountstore.app.util.PasswordHelper
 import com.usmandiscountstore.app.util.SecurityPreferences
 
@@ -51,15 +52,23 @@ fun LoginScreen(onLoginSuccess: (role: String, name: String) -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Top bar: Language picker
+            Box(Modifier.fillMaxWidth()) {
+                Box(Modifier.align(Alignment.TopEnd)) {
+                    LanguagePickerInTopBar(tint = BrandGreen)
+                }
+            }
+
             AppLogo(size = 100.dp)
 
             Spacer(Modifier.height(18.dp))
-            Text("Usman Discount Store", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = TextDark)
-            Text("Vehari Road, Old Hasilpur", fontSize = 14.sp, color = TextGray)
-            Text("Staff Hazri & Khata Management", fontSize = 12.sp, color = BrandGreen, fontWeight = FontWeight.SemiBold)
+            Text(Lang.t("app_name"), fontSize = 26.sp, fontWeight = FontWeight.Bold, color = TextDark)
+            Text(Lang.t("app_address"), fontSize = 14.sp, color = TextGray)
+            Text(Lang.t("app_tagline"), fontSize = 12.sp, color = BrandGreen, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(32.dp))
 
-            Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFE8EEF5)),
+            Card(shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8EEF5)),
                 modifier = Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(4.dp)) {
                     Button(
@@ -71,7 +80,7 @@ fun LoginScreen(onLoginSuccess: (role: String, name: String) -> Unit) {
                             contentColor = if (selectedRole == "ADMIN") Color.White else Color(0xFF455A64)
                         ),
                         elevation = null
-                    ) { Text("Admin", fontWeight = FontWeight.Bold) }
+                    ) { Text(Lang.t("admin"), fontWeight = FontWeight.Bold) }
                     Button(
                         onClick = { selectedRole = "MODERATOR"; errorMsg = null },
                         modifier = Modifier.weight(1f).height(44.dp),
@@ -81,14 +90,14 @@ fun LoginScreen(onLoginSuccess: (role: String, name: String) -> Unit) {
                             contentColor = if (selectedRole == "MODERATOR") Color.White else Color(0xFF455A64)
                         ),
                         elevation = null
-                    ) { Text("Moderator", fontWeight = FontWeight.Bold) }
+                    ) { Text(Lang.t("moderator"), fontWeight = FontWeight.Bold) }
                 }
             }
 
             Spacer(Modifier.height(20.dp))
             OutlinedTextField(
                 value = username, onValueChange = { username = it; errorMsg = null },
-                label = { Text("Username") },
+                label = { Text(Lang.t("username")) },
                 leadingIcon = { Icon(Icons.Default.Person, null, tint = BrandGreen) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp), singleLine = true
@@ -96,13 +105,13 @@ fun LoginScreen(onLoginSuccess: (role: String, name: String) -> Unit) {
             Spacer(Modifier.height(14.dp))
             OutlinedTextField(
                 value = password, onValueChange = { password = it; errorMsg = null },
-                label = { Text("Password") },
+                label = { Text(Lang.t("password")) },
                 leadingIcon = { Icon(Icons.Default.Lock, null, tint = BrandGreen) },
                 trailingIcon = {
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
                         Icon(
                             imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = if (passwordVisible) "Hide" else "Show",
+                            contentDescription = if (passwordVisible) Lang.t("hide") else Lang.t("show"),
                             tint = BrandGreen
                         )
                     }
@@ -127,7 +136,7 @@ fun LoginScreen(onLoginSuccess: (role: String, name: String) -> Unit) {
                         PasswordHelper.getModeratorPassword(context)
 
                     if (username.isBlank()) {
-                        errorMsg = "Username darj karein"
+                        errorMsg = Lang.t("username_empty")
                     } else if (password == correct) {
                         val name = if (selectedRole == "ADMIN")
                             "Muhammad Usman Nawaz"
@@ -136,16 +145,16 @@ fun LoginScreen(onLoginSuccess: (role: String, name: String) -> Unit) {
                         SecurityPreferences(context).saveSession(name, selectedRole)
                         onLoginSuccess(selectedRole, name)
                     } else {
-                        errorMsg = "Ghalat password"
+                        errorMsg = Lang.t("wrong_password")
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(54.dp),
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = BrandGreen)
-            ) { Text("Login Karein", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+            ) { Text(Lang.t("login_button"), fontSize = 16.sp, fontWeight = FontWeight.Bold) }
 
             Spacer(Modifier.height(16.dp))
-            CopyrightFooter()
+            Text(Lang.t("copyright"), fontSize = 10.sp, color = TextGray)
         }
     }
 }

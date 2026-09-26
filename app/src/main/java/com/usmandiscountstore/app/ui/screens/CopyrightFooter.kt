@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.usmandiscountstore.app.util.Lang
 
 @Composable
 fun CopyrightFooter() {
@@ -17,7 +18,7 @@ fun CopyrightFooter() {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            "© 2026 Mr.DHooM 4K — All Rights Reserved",
+            Lang.t("copyright"),
             fontSize = 10.sp,
             fontWeight = FontWeight.Medium,
             color = androidx.compose.ui.graphics.Color(0xFF9CA3AF)

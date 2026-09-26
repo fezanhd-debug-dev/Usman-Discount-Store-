@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.usmandiscountstore.app.data.local.AppDatabase
 import com.usmandiscountstore.app.ui.theme.*
+import com.usmandiscountstore.app.util.Lang
 import com.usmandiscountstore.app.util.SecurityPreferences
 import kotlinx.coroutines.flow.collectLatest
 import java.text.SimpleDateFormat
@@ -62,14 +63,15 @@ fun DashboardScreen(
                         AppLogoSmall(size = 36.dp)
                         Spacer(Modifier.width(10.dp))
                         Column {
-                            Text("Usman Discount Store", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
-                            Text("Vehari Road, Old Hasilpur", fontSize = 10.sp, color = Color.White.copy(alpha = 0.85f))
+                            Text(Lang.t("app_name"), fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
+                            Text(Lang.t("app_address"), fontSize = 10.sp, color = Color.White.copy(alpha = 0.85f))
                         }
                     }
                 },
                 actions = {
+                    LanguagePickerInTopBar(tint = Color.White)
                     IconButton(onClick = { prefs.clearSession(); onLogout() }) {
-                        Icon(Icons.Default.Logout, "Logout", tint = Color.White)
+                        Icon(Icons.Default.Logout, Lang.t("logout"), tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = BrandGreen)
@@ -93,12 +95,13 @@ fun DashboardScreen(
                     }
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Khush Amdeed", fontSize = 12.sp, color = TextGray)
+                        Text(Lang.t("welcome"), fontSize = 12.sp, color = TextGray)
                         Text(userName, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextDark)
                         Spacer(Modifier.height(4.dp))
                         Surface(shape = RoundedCornerShape(6.dp),
                             color = if (isAdmin) BrandGreen else BrandOrange) {
-                            Text(if (isAdmin) "ADMIN ACCESS" else "MODERATOR ACCESS",
+                            Text(
+                                if (isAdmin) Lang.t("admin_access") else Lang.t("moderator_access"),
                                 color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
                         }
@@ -115,44 +118,46 @@ fun DashboardScreen(
                     Icon(Icons.Default.CheckCircle, null, tint = BrandGreen, modifier = Modifier.size(24.dp))
                     Spacer(Modifier.width(10.dp))
                     Column {
-                        Text("Hasilpur Geofence Active", fontWeight = FontWeight.Bold, color = BrandGreen, fontSize = 13.sp)
-                        Text("Vehari Road Counter • UDS-HSL-01", fontSize = 11.sp, color = BrandGreenDark)
+                        Text(Lang.t("geofence_active"), fontWeight = FontWeight.Bold, color = BrandGreen, fontSize = 13.sp)
+                        Text(Lang.t("geofence_sub"), fontSize = 11.sp, color = BrandGreenDark)
                     }
                 }
             }
 
-            Text("Store Modules", fontWeight = FontWeight.Bold, color = TextDark, fontSize = 15.sp,
+            Text(Lang.t("store_modules"), fontWeight = FontWeight.Bold, color = TextDark, fontSize = 15.sp,
                 modifier = Modifier.padding(top = 8.dp))
 
-            ModuleCard("Hazri Lagao", "GPS + face verify", Icons.Default.CheckCircle, BrandGreen, onNavigateAttendance)
+            ModuleCard(Lang.t("mod_hazri"), Lang.t("mod_hazri_sub"),
+                Icons.Default.CheckCircle, BrandGreen, onNavigateAttendance)
 
             if (isAdmin) {
-                ModuleCard("Mulazimeen Management", "Staff add / edit / delete",
+                ModuleCard(Lang.t("mod_staff_admin"), Lang.t("mod_staff_admin_sub"),
                     Icons.Default.People, Color(0xFF2563EB), onNavigateStaff)
             } else {
-                ModuleCard("Mulazimeen List", "Staff ki tafseelat",
+                ModuleCard(Lang.t("mod_staff_mod"), Lang.t("mod_staff_mod_sub"),
                     Icons.Default.People, Color(0xFF2563EB), onNavigateStaff)
             }
 
-            ModuleCard("Attendance History", "Monthly report + edit",
+            ModuleCard(Lang.t("mod_history"), Lang.t("mod_history_sub"),
                 Icons.Default.EventNote, Color(0xFF0EA5E9), onNavigateHistory)
 
-            ModuleCard("Advance & Peshgi Khata", "Udhaar aur cash peshgi",
+            ModuleCard(Lang.t("mod_advance"), Lang.t("mod_advance_sub"),
                 Icons.Default.AccountBalanceWallet, BrandOrange, onNavigateAdvance)
 
-            // Leave Requests with badge
-            ModuleCardBadged("Leave Requests",
-                if (pendingLeaves > 0) "$pendingLeaves pending approval" else "Koi pending nahi",
+            ModuleCardBadged(
+                Lang.t("mod_leave"),
+                if (pendingLeaves > 0) "$pendingLeaves ${Lang.t("mod_leave_pending")}"
+                else Lang.t("mod_leave_none"),
                 Icons.Default.EventAvailable, Color(0xFFF59E0B),
                 badge = if (pendingLeaves > 0) pendingLeaves else null,
-                onNavigateLeave)
+                onClick = onNavigateLeave)
 
             if (isAdmin) {
-                ModuleCard("Salary Sheet (All Staff)", "Monthly + CSV export",
+                ModuleCard(Lang.t("mod_sheet"), Lang.t("mod_sheet_sub"),
                     Icons.Default.TableChart, Color(0xFF16A34A), onNavigateSalarySheet)
-                ModuleCard("Salary Slips & Payroll", "Ek staff ka PDF slip",
+                ModuleCard(Lang.t("mod_slip"), Lang.t("mod_slip_sub"),
                     Icons.Default.ReceiptLong, Color(0xFF7C3AED), onNavigateSalary)
-                ModuleCard("Admin Settings", "Store + security",
+                ModuleCard(Lang.t("mod_settings"), Lang.t("mod_settings_sub"),
                     Icons.Default.Tune, Color(0xFF4B5563), onNavigateSettings)
             }
 
