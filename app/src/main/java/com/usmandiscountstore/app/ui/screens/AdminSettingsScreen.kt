@@ -127,8 +127,8 @@ fun AdminSettingsScreen(onBack: () -> Unit) {
                 modifier = Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Hazri Alerts ON", fontWeight = FontWeight.Bold, color = TextDark, fontSize = 14.sp)
-                        Text("Har hazri pe WhatsApp alert", fontSize = 11.sp, color = TextGray)
+                        Text("Attendance Alerts", fontWeight = FontWeight.Bold, color = TextDark, fontSize = 14.sp)
+                        Text("Send WhatsApp alert on every check-in", fontSize = 11.sp, color = TextGray)
                     }
                     Switch(checked = alertEnabled, onCheckedChange = { alertEnabled = it },
                         colors = SwitchDefaults.colors(checkedThumbColor = BrandGreen))
