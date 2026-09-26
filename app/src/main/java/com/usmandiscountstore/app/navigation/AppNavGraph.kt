@@ -18,7 +18,9 @@ object Routes {
     const val ADVANCE = "advance"
     const val SALARY = "salary"
     const val SALARY_SHEET = "salary_sheet"
+    const val LEAVE = "leave/{isAdmin}"
     fun historyRoute(staffId: Long = 0L) = "history/$staffId"
+    fun leaveRoute(isAdmin: Boolean) = "leave/$isAdmin"
 }
 
 @Composable
@@ -40,6 +42,7 @@ fun AppNavGraph(navController: NavHostController) {
                 onNavigateAdvance = { navController.navigate(Routes.ADVANCE) },
                 onNavigateSalary = { navController.navigate(Routes.SALARY) },
                 onNavigateSalarySheet = { navController.navigate(Routes.SALARY_SHEET) },
+                onNavigateLeave = { navController.navigate(Routes.leaveRoute(true)) },
                 onNavigateSettings = { navController.navigate(Routes.ADMIN_SETTINGS) },
                 onLogout = {
                     navController.navigate(Routes.LOGIN) { popUpTo(0) { inclusive = true } }
@@ -59,5 +62,12 @@ fun AppNavGraph(navController: NavHostController) {
         composable(Routes.ADVANCE) { AdvanceKhataScreen(onBack = { navController.popBackStack() }) }
         composable(Routes.SALARY) { SalarySlipScreen(onBack = { navController.popBackStack() }) }
         composable(Routes.SALARY_SHEET) { SalarySheetScreen(onBack = { navController.popBackStack() }) }
+        composable(
+            route = Routes.LEAVE,
+            arguments = listOf(navArgument("isAdmin") { type = NavType.BoolType; defaultValue = true })
+        ) { entry ->
+            val isAdmin = entry.arguments?.getBoolean("isAdmin") ?: true
+            LeaveRequestScreen(isAdminView = isAdmin, onBack = { navController.popBackStack() })
+        }
     }
 }

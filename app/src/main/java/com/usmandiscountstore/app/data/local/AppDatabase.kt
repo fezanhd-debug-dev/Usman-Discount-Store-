@@ -4,16 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import com.usmandiscountstore.app.data.local.dao.AdvanceDao
-import com.usmandiscountstore.app.data.local.dao.AttendanceDao
-import com.usmandiscountstore.app.data.local.dao.BonusDao
-import com.usmandiscountstore.app.data.local.dao.StaffDao
-import com.usmandiscountstore.app.data.local.dao.StoreSettingsDao
-import com.usmandiscountstore.app.data.local.entity.AdvanceEntity
-import com.usmandiscountstore.app.data.local.entity.AttendanceEntity
-import com.usmandiscountstore.app.data.local.entity.BonusEntity
-import com.usmandiscountstore.app.data.local.entity.StaffEntity
-import com.usmandiscountstore.app.data.local.entity.StoreSettingsEntity
+import com.usmandiscountstore.app.data.local.dao.*
+import com.usmandiscountstore.app.data.local.entity.*
 
 @Database(
     entities = [
@@ -21,9 +13,10 @@ import com.usmandiscountstore.app.data.local.entity.StoreSettingsEntity
         AttendanceEntity::class,
         StoreSettingsEntity::class,
         AdvanceEntity::class,
-        BonusEntity::class
+        BonusEntity::class,
+        LeaveRequestEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -32,6 +25,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun storeSettingsDao(): StoreSettingsDao
     abstract fun advanceDao(): AdvanceDao
     abstract fun bonusDao(): BonusDao
+    abstract fun leaveDao(): LeaveDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
