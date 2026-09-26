@@ -1,5 +1,6 @@
 package com.usmandiscountstore.app.ui.screens
 
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,7 +27,10 @@ import com.usmandiscountstore.app.data.local.AppDatabase
 import com.usmandiscountstore.app.data.local.entity.StaffEntity
 import com.usmandiscountstore.app.data.repository.StaffRepository
 import com.usmandiscountstore.app.ui.theme.*
+import com.usmandiscountstore.app.util.FaceEmbeddingHelper
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -78,7 +82,7 @@ fun StaffListScreen(onBack: () -> Unit) {
                     Icon(Icons.Default.PeopleOutline, null, tint = TextGray, modifier = Modifier.size(64.dp))
                     Spacer(Modifier.height(12.dp))
                     Text("Koi staff nahi hai", fontSize = 16.sp, color = TextGray)
-                    Text("Neeche + button dabao", fontSize = 13.sp, color = TextGray)
+                    Text("Neeche + dabao", fontSize = 13.sp, color = TextGray)
                 }
             }
         } else {
@@ -140,30 +144,22 @@ private fun StaffCard(staff: StaffEntity, onEdit: () -> Unit, onDelete: () -> Un
         "ADMIN" -> "ADMIN"
         else -> "STAFF"
     }
+    val hasFace = staff.faceEmbedding.isNotBlank()
 
-    Card(
-        shape = RoundedCornerShape(14.dp),
+    Card(shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
+        modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier.size(50.dp).clip(CircleShape).background(roleColor.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(modifier = Modifier.size(50.dp).clip(CircleShape).background(roleColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center) {
                 if (staff.photoPath.isNotEmpty() && File(staff.photoPath).exists()) {
-                    AsyncImage(
-                        model = File(staff.photoPath),
-                        contentDescription = null,
+                    AsyncImage(model = File(staff.photoPath), contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize().clip(CircleShape)
-                    )
+                        modifier = Modifier.fillMaxSize().clip(CircleShape))
                 } else {
-                    Text(
-                        staff.name.firstOrNull()?.toString()?.uppercase() ?: "?",
-                        fontSize = 22.sp, fontWeight = FontWeight.Bold, color = roleColor
-                    )
+                    Text(staff.name.firstOrNull()?.toString()?.uppercase() ?: "?",
+                        fontSize = 22.sp, fontWeight = FontWeight.Bold, color = roleColor)
                 }
             }
             Spacer(Modifier.width(12.dp))
@@ -180,9 +176,17 @@ private fun StaffCard(staff: StaffEntity, onEdit: () -> Unit, onDelete: () -> Un
                 if (staff.designation.isNotEmpty())
                     Text(staff.designation, fontSize = 11.sp, color = TextGray)
                 Spacer(Modifier.height(2.dp))
-                Text("Ujrat: Rs. ${staff.dailyWage.toInt()}/din", fontSize = 11.sp, color = BrandGreen, fontWeight = FontWeight.SemiBold)
-                if (staff.phone.isNotEmpty())
-                    Text(staff.phone, fontSize = 11.sp, color = TextGray)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Ujrat: Rs. ${staff.dailyWage.toInt()}/din", fontSize = 11.sp, color = BrandGreen, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.width(8.dp))
+                    if (hasFace) {
+                        Icon(Icons.Default.CheckCircle, null, tint = BrandGreen, modifier = Modifier.size(12.dp))
+                        Text("Face", fontSize = 10.sp, color = BrandGreen)
+                    } else {
+                        Icon(Icons.Default.Warning, null, tint = BrandOrange, modifier = Modifier.size(12.dp))
+                        Text("No Face", fontSize = 10.sp, color = BrandOrange)
+                    }
+                }
             }
             IconButton(onClick = onEdit) {
                 Icon(Icons.Default.Edit, "Edit", tint = BrandGreen, modifier = Modifier.size(20.dp))
@@ -201,23 +205,45 @@ private fun AddEditStaffDialog(
     onDismiss: () -> Unit,
     onSave: (StaffEntity) -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf(initial?.name ?: "") }
     var phone by remember { mutableStateOf(initial?.phone ?: "") }
     var designation by remember { mutableStateOf(initial?.designation ?: "") }
     var role by remember { mutableStateOf(initial?.role ?: "STAFF") }
     var wageText by remember { mutableStateOf(initial?.dailyWage?.toInt()?.toString() ?: "") }
     var photoPath by remember { mutableStateOf(initial?.photoPath ?: "") }
+    var faceEmbedding by remember { mutableStateOf(initial?.faceEmbedding ?: "") }
     var error by remember { mutableStateOf<String?>(null) }
     var showCamera by remember { mutableStateOf(false) }
+    var processing by remember { mutableStateOf(false) }
 
     val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
 
     if (showCamera) {
         CameraScreen(
-            title = "Staff Photo Capture",
+            title = "Face Capture — ${name.ifBlank { "New" }}",
             onPhotoCaptured = { file ->
-                photoPath = file.absolutePath
-                showCamera = false
+                scope.launch {
+                    processing = true
+                    try {
+                        val bmp = BitmapFactory.decodeFile(file.absolutePath)
+                        val emb = withContext(Dispatchers.Default) {
+                            FaceEmbeddingHelper.getEmbedding(bmp)
+                        }
+                        if (emb != null) {
+                            photoPath = file.absolutePath
+                            faceEmbedding = FaceEmbeddingHelper.embedToString(emb)
+                        } else {
+                            error = "Face embedding generate nahi hua"
+                        }
+                    } catch (e: Exception) {
+                        error = "Photo process fail: ${e.message}"
+                    } finally {
+                        processing = false
+                        showCamera = false
+                    }
+                }
             },
             onBack = { showCamera = false }
         )
@@ -229,31 +255,40 @@ private fun AddEditStaffDialog(
         title = { Text(if (initial == null) "Naya Staff Add Karein" else "Staff Edit Karein", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                // Photo section
+                if (processing) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Text("Face process ho raha hai...", fontSize = 12.sp)
+                    }
+                }
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier.size(70.dp).clip(CircleShape).background(BrandGreenLight),
-                        contentAlignment = Alignment.Center
-                    ) {
+                    Box(modifier = Modifier.size(70.dp).clip(CircleShape).background(BrandGreenLight),
+                        contentAlignment = Alignment.Center) {
                         if (photoPath.isNotEmpty() && File(photoPath).exists()) {
-                            AsyncImage(
-                                model = File(photoPath),
-                                contentDescription = null,
+                            AsyncImage(model = File(photoPath), contentDescription = null,
                                 contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize().clip(CircleShape)
-                            )
+                                modifier = Modifier.fillMaxSize().clip(CircleShape))
                         } else {
                             Icon(Icons.Default.Person, null, tint = BrandGreen, modifier = Modifier.size(34.dp))
                         }
                     }
                     Spacer(Modifier.width(12.dp))
-                    Button(
-                        onClick = { showCamera = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = BrandGreen)
-                    ) {
-                        Icon(Icons.Default.CameraAlt, null)
-                        Spacer(Modifier.width(6.dp))
-                        Text(if (photoPath.isEmpty()) "Photo Lein" else "Change Photo", fontSize = 12.sp)
+                    Column {
+                        Button(
+                            onClick = { showCamera = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = BrandGreen)
+                        ) {
+                            Icon(Icons.Default.CameraAlt, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text(if (photoPath.isEmpty()) "Face Capture" else "Change Face", fontSize = 12.sp)
+                        }
+                        if (faceEmbedding.isNotBlank()) {
+                            Text("✅ Face registered", fontSize = 10.sp, color = BrandGreen)
+                        } else {
+                            Text("⚠️ Face zaroori hai", fontSize = 10.sp, color = BrandOrange)
+                        }
                     }
                 }
 
@@ -281,6 +316,7 @@ private fun AddEditStaffDialog(
             Button(
                 onClick = {
                     if (name.isBlank()) { error = "Naam zaroori"; return@Button }
+                    if (faceEmbedding.isBlank()) { error = "Face capture zaroori hai"; return@Button }
                     val wage = wageText.toDoubleOrNull() ?: 0.0
                     val entity = (initial ?: StaffEntity(name = name, joinDate = today)).copy(
                         name = name.trim(),
@@ -288,11 +324,13 @@ private fun AddEditStaffDialog(
                         designation = designation.trim(),
                         role = role,
                         dailyWage = wage,
-                        photoPath = photoPath
+                        photoPath = photoPath,
+                        faceEmbedding = faceEmbedding
                     )
                     onSave(entity)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = BrandGreen)
+                colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
+                enabled = !processing
             ) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }

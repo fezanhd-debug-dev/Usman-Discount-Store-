@@ -13,5 +13,6 @@ data class StaffEntity(
     val dailyWage: Double = 0.0,
     val joinDate: String = "",
     val photoPath: String = "",
+    val faceEmbedding: String = "",
     val isActive: Boolean = true
 )

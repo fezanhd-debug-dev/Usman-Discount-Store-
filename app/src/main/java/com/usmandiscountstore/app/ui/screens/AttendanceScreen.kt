@@ -2,12 +2,13 @@ package com.usmandiscountstore.app.ui.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -27,11 +28,14 @@ import com.usmandiscountstore.app.data.local.AppDatabase
 import com.usmandiscountstore.app.data.local.entity.AttendanceEntity
 import com.usmandiscountstore.app.data.local.entity.StaffEntity
 import com.usmandiscountstore.app.ui.theme.*
+import com.usmandiscountstore.app.util.FaceEmbeddingHelper
 import com.usmandiscountstore.app.util.LocationHelper
 import com.usmandiscountstore.app.util.SecurityPreferences
 import com.usmandiscountstore.app.util.WhatsAppHelper
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -57,8 +61,6 @@ fun AttendanceScreen(onBack: () -> Unit) {
     var todayAttendance by remember { mutableStateOf<List<AttendanceEntity>>(emptyList()) }
     var statusMsg by remember { mutableStateOf<String?>(null) }
     var isChecking by remember { mutableStateOf(false) }
-
-    // Which staff is being camera-captured for PRESENT
     var cameraForStaff by remember { mutableStateOf<StaffEntity?>(null) }
 
     var hasLocationPerm by remember {
@@ -82,72 +84,86 @@ fun AttendanceScreen(onBack: () -> Unit) {
 
     fun getStatusFor(staffId: Long) = todayAttendance.firstOrNull { it.staffId == staffId }
 
-    fun markAttendance(staff: StaffEntity, status: String, selfiePath: String = "") {
+    suspend fun processPunch(staff: StaffEntity, selfiePath: String) {
+        // GPS check
+        if (!hasLocationPerm) { statusMsg = "❌ Location permission chahiye"; return }
+        val loc = LocationHelper.getCurrentLocation(context)
+        if (loc == null) { statusMsg = "❌ GPS on karo"; return }
+        val settings = settingsDao.get()
+        val storeLat = settings?.latitude ?: 29.6974
+        val storeLon = settings?.longitude ?: 72.5518
+        val radius = settings?.geofenceRadiusMeters ?: 30f
+        val dist = LocationHelper.distanceTo(loc.latitude, loc.longitude, storeLat, storeLon)
+        if (dist > radius) {
+            statusMsg = "❌ Aap dukan se ${dist.toInt()}m door hain"
+            return
+        }
+
+        // Face verification
+        val storedEmb = FaceEmbeddingHelper.stringToEmbed(staff.faceEmbedding)
+        if (storedEmb == null) {
+            statusMsg = "❌ ${staff.name} ka face register nahi"
+            return
+        }
+        val bmp = BitmapFactory.decodeFile(selfiePath)
+        val liveEmb = withContext(Dispatchers.Default) { FaceEmbeddingHelper.getEmbedding(bmp) }
+        if (liveEmb == null) { statusMsg = "❌ Face detect nahi hua"; return }
+
+        val similarity = FaceEmbeddingHelper.cosineSimilarity(storedEmb, liveEmb)
+        if (similarity < 0.75f) {
+            statusMsg = "❌ Face match nahi (${(similarity * 100).toInt()}%). Aap ${staff.name} nahi hain!"
+            File(selfiePath).delete()
+            return
+        }
+
+        // Save
+        val existing = attendanceDao.getByStaffAndDate(staff.id, today)
+        val entity = existing?.copy(
+            status = "PRESENT", checkInTime = todayTime,
+            selfiePath = selfiePath, markedBy = markerName
+        ) ?: AttendanceEntity(
+            staffId = staff.id, staffName = staff.name, date = today,
+            status = "PRESENT", checkInTime = todayTime,
+            selfiePath = selfiePath, markedBy = markerName
+        )
+        attendanceDao.insert(entity)
+        statusMsg = "✅ ${staff.name} — Hazri (Face: ${(similarity * 100).toInt()}%)"
+
+        // WhatsApp
+        if (settings?.alertEnabled == true && settings.adminWhatsapp.isNotBlank()) {
+            val msg = "🏪 Usman Discount Store\n\n📋 Hazri Verified\n👤 ${staff.name}\n" +
+                    "✅ Face: ${(similarity * 100).toInt()}%\n⏰ $todayTime\n📅 $today\n" +
+                    "✍️ $markerName\n\n© Mr.DHooM 4K"
+            WhatsAppHelper.sendAlert(context, settings.adminWhatsapp, msg)
+        }
+    }
+
+    fun markOther(staff: StaffEntity, status: String) {
         scope.launch {
-            isChecking = true
-            statusMsg = null
-
-            if (status == "PRESENT" || status == "HALF_DAY") {
-                if (!hasLocationPerm) {
-                    statusMsg = "❌ Location permission chahiye"
-                    isChecking = false; return@launch
-                }
-                val loc = LocationHelper.getCurrentLocation(context)
-                if (loc == null) {
-                    statusMsg = "❌ GPS on karo"
-                    isChecking = false; return@launch
-                }
-                val s = settingsDao.get()
-                val storeLat = s?.latitude ?: 29.6974
-                val storeLon = s?.longitude ?: 72.5518
-                val radius = s?.geofenceRadiusMeters ?: 30f
-                val dist = LocationHelper.distanceTo(loc.latitude, loc.longitude, storeLat, storeLon)
-                if (dist > radius) {
-                    statusMsg = "❌ Aap dukan se ${dist.toInt()}m door hain"
-                    isChecking = false; return@launch
-                }
-            }
-
+            isChecking = true; statusMsg = null
             val existing = attendanceDao.getByStaffAndDate(staff.id, today)
-            val entity = existing?.copy(
-                status = status,
-                checkInTime = if (status == "PRESENT" || status == "HALF_DAY") todayTime else existing.checkInTime,
-                selfiePath = selfiePath.ifEmpty { existing.selfiePath },
-                markedBy = markerName
-            ) ?: AttendanceEntity(
-                staffId = staff.id,
-                staffName = staff.name,
-                date = today,
-                status = status,
-                checkInTime = if (status == "PRESENT" || status == "HALF_DAY") todayTime else "",
-                selfiePath = selfiePath,
-                markedBy = markerName
-            )
+            val entity = existing?.copy(status = status, markedBy = markerName)
+                ?: AttendanceEntity(
+                    staffId = staff.id, staffName = staff.name, date = today,
+                    status = status, markedBy = markerName
+                )
             attendanceDao.insert(entity)
-            statusMsg = "✅ ${staff.name} ki hazri darj"
-
-            val s = settingsDao.get()
-            if (s?.alertEnabled == true && s.adminWhatsapp.isNotBlank()) {
-                val statusText = when (status) {
-                    "PRESENT" -> "Hazir"; "LEAVE" -> "Chutti"
-                    "ABSENT" -> "Gair Hazir"; "HALF_DAY" -> "Half Day"
-                    else -> status
-                }
-                val msg = "🏪 Usman Discount Store\n\n📋 Hazri Alert\n👤 ${staff.name}\n✅ $statusText\n⏰ $todayTime\n📅 $today\n✍️ $markerName\n\n© Mr.DHooM 4K"
-                WhatsAppHelper.sendAlert(context, s.adminWhatsapp, msg)
-            }
+            statusMsg = "✅ ${staff.name} — ${status.lowercase().replace("_", " ")}"
             isChecking = false
         }
     }
 
-    // If camera is open for a staff — show camera screen
     cameraForStaff?.let { staff ->
         CameraScreen(
-            title = "Hazri — ${staff.name}",
+            title = "Face Verify — ${staff.name}",
             onPhotoCaptured = { file ->
-                val path = file.absolutePath
                 cameraForStaff = null
-                markAttendance(staff, "PRESENT", path)
+                scope.launch {
+                    isChecking = true; statusMsg = null
+                    try { processPunch(staff, file.absolutePath) }
+                    catch (e: Exception) { statusMsg = "❌ ${e.message}" }
+                    finally { isChecking = false }
+                }
             },
             onBack = { cameraForStaff = null }
         )
@@ -194,12 +210,11 @@ fun AttendanceScreen(onBack: () -> Unit) {
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(staffList, key = { it.id }) { staff ->
-                        val att = getStatusFor(staff.id)
                         AttendanceCard(
                             staff = staff,
-                            attendance = att,
-                            onMarkPresent = { cameraForStaff = staff },   // camera open
-                            onMarkOther = { status -> markAttendance(staff, status) }
+                            attendance = getStatusFor(staff.id),
+                            onMarkPresent = { cameraForStaff = staff },
+                            onMarkOther = { status -> markOther(staff, status) }
                         )
                     }
                     item { CopyrightFooter() }
@@ -265,7 +280,7 @@ private fun AttendanceCard(
                         colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
                         contentPadding = PaddingValues(horizontal = 2.dp)
                     ) {
-                        Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.Face, null, modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(3.dp))
                         Text("Hazir", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
