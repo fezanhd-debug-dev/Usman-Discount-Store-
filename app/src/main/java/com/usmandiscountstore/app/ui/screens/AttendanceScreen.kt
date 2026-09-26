@@ -5,10 +5,10 @@ import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -62,6 +62,7 @@ fun AttendanceScreen(onBack: () -> Unit) {
     var statusMsg by remember { mutableStateOf<String?>(null) }
     var isChecking by remember { mutableStateOf(false) }
     var cameraForStaff by remember { mutableStateOf<StaffEntity?>(null) }
+    var confirmAllPresent by remember { mutableStateOf(false) }
 
     var hasLocationPerm by remember {
         mutableStateOf(
@@ -84,8 +85,44 @@ fun AttendanceScreen(onBack: () -> Unit) {
 
     fun getStatusFor(staffId: Long) = todayAttendance.firstOrNull { it.staffId == staffId }
 
+    fun markOther(staff: StaffEntity, status: String) {
+        scope.launch {
+            isChecking = true; statusMsg = null
+            val existing = attendanceDao.getByStaffAndDate(staff.id, today)
+            val entity = existing?.copy(status = status, markedBy = markerName)
+                ?: AttendanceEntity(
+                    staffId = staff.id, staffName = staff.name, date = today,
+                    status = status, markedBy = markerName
+                )
+            attendanceDao.insert(entity)
+            statusMsg = "✅ ${staff.name} — ${status.lowercase().replace("_", " ")}"
+            isChecking = false
+        }
+    }
+
+    // Bulk mark All Present
+    fun markAllPresent() {
+        scope.launch {
+            isChecking = true; statusMsg = null
+            var count = 0
+            for (s in staffList) {
+                val existing = attendanceDao.getByStaffAndDate(s.id, today)
+                if (existing == null || existing.status != "PRESENT") {
+                    val entity = existing?.copy(status = "PRESENT", checkInTime = todayTime, markedBy = markerName)
+                        ?: AttendanceEntity(
+                            staffId = s.id, staffName = s.name, date = today,
+                            status = "PRESENT", checkInTime = todayTime, markedBy = markerName
+                        )
+                    attendanceDao.insert(entity)
+                    count++
+                }
+            }
+            statusMsg = "✅ $count staff ko Hazir mark kiya"
+            isChecking = false
+        }
+    }
+
     suspend fun processPunch(staff: StaffEntity, selfiePath: String) {
-        // GPS check
         if (!hasLocationPerm) { statusMsg = "❌ Location permission chahiye"; return }
         val loc = LocationHelper.getCurrentLocation(context)
         if (loc == null) { statusMsg = "❌ GPS on karo"; return }
@@ -99,7 +136,6 @@ fun AttendanceScreen(onBack: () -> Unit) {
             return
         }
 
-        // Face verification
         val storedEmb = FaceEmbeddingHelper.stringToEmbed(staff.faceEmbedding)
         if (storedEmb == null) {
             statusMsg = "❌ ${staff.name} ka face register nahi"
@@ -116,7 +152,6 @@ fun AttendanceScreen(onBack: () -> Unit) {
             return
         }
 
-        // Save
         val existing = attendanceDao.getByStaffAndDate(staff.id, today)
         val entity = existing?.copy(
             status = "PRESENT", checkInTime = todayTime,
@@ -129,27 +164,11 @@ fun AttendanceScreen(onBack: () -> Unit) {
         attendanceDao.insert(entity)
         statusMsg = "✅ ${staff.name} — Hazri (Face: ${(similarity * 100).toInt()}%)"
 
-        // WhatsApp
         if (settings?.alertEnabled == true && settings.adminWhatsapp.isNotBlank()) {
             val msg = "🏪 Usman Discount Store\n\n📋 Hazri Verified\n👤 ${staff.name}\n" +
                     "✅ Face: ${(similarity * 100).toInt()}%\n⏰ $todayTime\n📅 $today\n" +
                     "✍️ $markerName\n\n© Mr.DHooM 4K"
             WhatsAppHelper.sendAlert(context, settings.adminWhatsapp, msg)
-        }
-    }
-
-    fun markOther(staff: StaffEntity, status: String) {
-        scope.launch {
-            isChecking = true; statusMsg = null
-            val existing = attendanceDao.getByStaffAndDate(staff.id, today)
-            val entity = existing?.copy(status = status, markedBy = markerName)
-                ?: AttendanceEntity(
-                    staffId = staff.id, staffName = staff.name, date = today,
-                    status = status, markedBy = markerName
-                )
-            attendanceDao.insert(entity)
-            statusMsg = "✅ ${staff.name} — ${status.lowercase().replace("_", " ")}"
-            isChecking = false
         }
     }
 
@@ -182,6 +201,13 @@ fun AttendanceScreen(onBack: () -> Unit) {
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
+                    }
+                },
+                actions = {
+                    TextButton(onClick = { confirmAllPresent = true }) {
+                        Icon(Icons.Default.DoneAll, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("All Present", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = BrandGreen)
@@ -222,6 +248,22 @@ fun AttendanceScreen(onBack: () -> Unit) {
                 }
             }
         }
+    }
+
+    // ===== CONFIRM ALL PRESENT =====
+    if (confirmAllPresent) {
+        AlertDialog(
+            onDismissRequest = { confirmAllPresent = false },
+            title = { Text("All Present?", fontWeight = FontWeight.Bold) },
+            text = { Text("Sab staff ko aaj ki hazri me Hazir mark karna chahte hain? Jo already marked hain unka status change nahi hoga.") },
+            confirmButton = {
+                Button(
+                    onClick = { markAllPresent(); confirmAllPresent = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandGreen)
+                ) { Text("Yes, Mark All") }
+            },
+            dismissButton = { TextButton(onClick = { confirmAllPresent = false }) { Text("Cancel") } }
+        )
     }
 }
 

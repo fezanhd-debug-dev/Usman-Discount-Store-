@@ -31,6 +31,7 @@ import java.util.Locale
 fun DashboardScreen(
     onNavigateStaff: () -> Unit,
     onNavigateAttendance: () -> Unit,
+    onNavigateHistory: () -> Unit,
     onNavigateAdvance: () -> Unit,
     onNavigateSalary: () -> Unit,
     onNavigateSettings: () -> Unit,
@@ -70,7 +71,7 @@ fun DashboardScreen(
             Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // ===== WELCOME CARD =====
+            // Welcome Card
             Card(shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -98,7 +99,6 @@ fun DashboardScreen(
 
             Text(todayDate, fontSize = 12.sp, color = TextGray, modifier = Modifier.padding(start = 4.dp))
 
-            // ===== GEOFENCE CARD =====
             Card(shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(containerColor = BrandGreenLight),
                 modifier = Modifier.fillMaxWidth()) {
@@ -115,9 +115,7 @@ fun DashboardScreen(
             Text("Store Modules", fontWeight = FontWeight.Bold, color = TextDark, fontSize = 15.sp,
                 modifier = Modifier.padding(top = 8.dp))
 
-            // ===== MODULES =====
-            ModuleCard("Hazri Lagao", "GPS se hazri aur face verify",
-                Icons.Default.CheckCircle, BrandGreen, onNavigateAttendance)
+            ModuleCard("Hazri Lagao", "GPS + face verify", Icons.Default.CheckCircle, BrandGreen, onNavigateAttendance)
 
             if (isAdmin) {
                 ModuleCard("Mulazimeen Management", "Staff add / edit / delete",
@@ -127,13 +125,16 @@ fun DashboardScreen(
                     Icons.Default.People, Color(0xFF2563EB), onNavigateStaff)
             }
 
-            ModuleCard("Advance & Peshgi Khata", "Udhaar aur cash peshgi ka record",
+            ModuleCard("Attendance History", "Monthly report + edit",
+                Icons.Default.EventNote, Color(0xFF0EA5E9), onNavigateHistory)
+
+            ModuleCard("Advance & Peshgi Khata", "Udhaar aur cash peshgi",
                 Icons.Default.AccountBalanceWallet, BrandOrange, onNavigateAdvance)
 
             if (isAdmin) {
-                ModuleCard("Salary Slips & Payroll", "Mahana tankhwah aur PDF slip",
+                ModuleCard("Salary Slips & Payroll", "Mahana tankhwah aur PDF",
                     Icons.Default.ReceiptLong, Color(0xFF7C3AED), onNavigateSalary)
-                ModuleCard("Admin Settings", "Store aur security settings",
+                ModuleCard("Admin Settings", "Store + security",
                     Icons.Default.Tune, Color(0xFF4B5563), onNavigateSettings)
             }
 
