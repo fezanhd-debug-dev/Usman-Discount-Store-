@@ -28,6 +28,7 @@ import com.usmandiscountstore.app.data.local.entity.StaffEntity
 import com.usmandiscountstore.app.data.repository.StaffRepository
 import com.usmandiscountstore.app.ui.theme.*
 import com.usmandiscountstore.app.util.FaceEmbeddingHelper
+import com.usmandiscountstore.app.util.Lang
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -38,11 +39,9 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StaffListScreen(onBack: () -> Unit) {
-
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val repo = remember { StaffRepository(AppDatabase.get(context).staffDao()) }
-
     val staffList by repo.getAllActive().collectAsState(initial = emptyList())
     var showDialog by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<StaffEntity?>(null) }
@@ -53,25 +52,25 @@ fun StaffListScreen(onBack: () -> Unit) {
             TopAppBar(
                 title = {
                     Column {
-                        Text("Mulazimeen Record", fontWeight = FontWeight.Bold, color = Color.White)
-                        Text("${staffList.size} active staff", fontSize = 11.sp, color = Color.White.copy(alpha = 0.85f))
+                        Text(Lang.t("staff_record"), fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("${staffList.size} ${Lang.t("active_staff")}", fontSize = 11.sp, color = Color.White.copy(alpha = 0.85f))
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, Lang.t("back"), tint = Color.White)
                     }
                 },
+                actions = { LanguagePickerInTopBar(tint = Color.White) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = BrandGreen)
             )
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { editing = null; showDialog = true },
-                containerColor = BrandGreen,
-                contentColor = Color.White,
+                containerColor = BrandGreen, contentColor = Color.White,
                 icon = { Icon(Icons.Default.PersonAdd, null) },
-                text = { Text("Naya Staff", fontWeight = FontWeight.Bold) }
+                text = { Text(Lang.t("new_staff"), fontWeight = FontWeight.Bold) }
             )
         },
         containerColor = BackgroundLight
@@ -81,8 +80,8 @@ fun StaffListScreen(onBack: () -> Unit) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.PeopleOutline, null, tint = TextGray, modifier = Modifier.size(64.dp))
                     Spacer(Modifier.height(12.dp))
-                    Text("Koi staff nahi hai", fontSize = 16.sp, color = TextGray)
-                    Text("Neeche + dabao", fontSize = 13.sp, color = TextGray)
+                    Text(Lang.t("no_staff"), fontSize = 16.sp, color = TextGray)
+                    Text(Lang.t("tap_to_add"), fontSize = 13.sp, color = TextGray)
                 }
             }
         } else {
@@ -120,14 +119,14 @@ fun StaffListScreen(onBack: () -> Unit) {
     confirmDelete?.let { staff ->
         AlertDialog(
             onDismissRequest = { confirmDelete = null },
-            title = { Text("Staff Remove Karein?") },
-            text = { Text("${staff.name} ko remove karna chahte hain?") },
+            title = { Text(Lang.t("remove_staff")) },
+            text = { Text("${staff.name} — ${Lang.t("remove_staff_msg")}") },
             confirmButton = {
                 TextButton(onClick = {
                     scope.launch { repo.deactivate(staff.id); confirmDelete = null }
-                }) { Text("Haan", color = Color(0xFFDC2626)) }
+                }) { Text(Lang.t("yes"), color = Color(0xFFDC2626)) }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("Nahi") } }
+            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text(Lang.t("no")) } }
         )
     }
 }
@@ -135,14 +134,7 @@ fun StaffListScreen(onBack: () -> Unit) {
 @Composable
 private fun StaffCard(staff: StaffEntity, onEdit: () -> Unit, onDelete: () -> Unit) {
     val roleColor = when (staff.role) {
-        "MODERATOR" -> BrandOrange
-        "ADMIN" -> BrandGreen
-        else -> Color(0xFF2563EB)
-    }
-    val roleText = when (staff.role) {
-        "MODERATOR" -> "MODERATOR"
-        "ADMIN" -> "ADMIN"
-        else -> "STAFF"
+        "MODERATOR" -> BrandOrange; "ADMIN" -> BrandGreen; else -> Color(0xFF2563EB)
     }
     val hasFace = staff.faceEmbedding.isNotBlank()
 
@@ -168,7 +160,7 @@ private fun StaffCard(staff: StaffEntity, onEdit: () -> Unit, onDelete: () -> Un
                     Text(staff.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextDark)
                     Spacer(Modifier.width(8.dp))
                     Surface(shape = RoundedCornerShape(4.dp), color = roleColor) {
-                        Text(roleText, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold,
+                        Text(staff.role, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                     }
                 }
@@ -177,22 +169,27 @@ private fun StaffCard(staff: StaffEntity, onEdit: () -> Unit, onDelete: () -> Un
                     Text(staff.designation, fontSize = 11.sp, color = TextGray)
                 Spacer(Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Ujrat: Rs. ${staff.dailyWage.toInt()}/din", fontSize = 11.sp, color = BrandGreen, fontWeight = FontWeight.SemiBold)
+                    Text("${Lang.t("wage_label")}: Rs. ${staff.dailyWage.toInt()}/din",
+                        fontSize = 11.sp, color = BrandGreen, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.width(8.dp))
-                    if (hasFace) {
-                        Icon(Icons.Default.CheckCircle, null, tint = BrandGreen, modifier = Modifier.size(12.dp))
-                        Text("Face", fontSize = 10.sp, color = BrandGreen)
-                    } else {
-                        Icon(Icons.Default.Warning, null, tint = BrandOrange, modifier = Modifier.size(12.dp))
-                        Text("No Face", fontSize = 10.sp, color = BrandOrange)
-                    }
+                    Icon(
+                        if (hasFace) Icons.Default.CheckCircle else Icons.Default.Warning,
+                        null,
+                        tint = if (hasFace) BrandGreen else BrandOrange,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Text(
+                        if (hasFace) Lang.t("face_registered") else Lang.t("face_required"),
+                        fontSize = 10.sp,
+                        color = if (hasFace) BrandGreen else BrandOrange
+                    )
                 }
             }
             IconButton(onClick = onEdit) {
-                Icon(Icons.Default.Edit, "Edit", tint = BrandGreen, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Edit, Lang.t("edit"), tint = BrandGreen, modifier = Modifier.size(20.dp))
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, "Delete", tint = Color(0xFFDC2626), modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Delete, Lang.t("delete"), tint = Color(0xFFDC2626), modifier = Modifier.size(20.dp))
             }
         }
     }
@@ -217,32 +214,23 @@ private fun AddEditStaffDialog(
     var error by remember { mutableStateOf<String?>(null) }
     var showCamera by remember { mutableStateOf(false) }
     var processing by remember { mutableStateOf(false) }
-
     val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
 
     if (showCamera) {
         CameraScreen(
-            title = "Face Capture — ${name.ifBlank { "New" }}",
+            title = "${Lang.t("face_capture")} — ${name.ifBlank { "New" }}",
             onPhotoCaptured = { file ->
                 scope.launch {
                     processing = true
                     try {
                         val bmp = BitmapFactory.decodeFile(file.absolutePath)
-                        val emb = withContext(Dispatchers.Default) {
-                            FaceEmbeddingHelper.getEmbedding(bmp)
-                        }
+                        val emb = withContext(Dispatchers.Default) { FaceEmbeddingHelper.getEmbedding(bmp) }
                         if (emb != null) {
                             photoPath = file.absolutePath
                             faceEmbedding = FaceEmbeddingHelper.embedToString(emb)
-                        } else {
-                            error = "Face embedding generate nahi hua"
-                        }
-                    } catch (e: Exception) {
-                        error = "Photo process fail: ${e.message}"
-                    } finally {
-                        processing = false
-                        showCamera = false
-                    }
+                        } else error = Lang.t("face_error")
+                    } catch (e: Exception) { error = e.message }
+                    finally { processing = false; showCamera = false }
                 }
             },
             onBack = { showCamera = false }
@@ -252,17 +240,16 @@ private fun AddEditStaffDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initial == null) "Naya Staff Add Karein" else "Staff Edit Karein", fontWeight = FontWeight.Bold) },
+        title = { Text(if (initial == null) Lang.t("add_staff") else Lang.t("edit_staff"), fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (processing) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(10.dp))
-                        Text("Face process ho raha hai...", fontSize = 12.sp)
+                        Text(Lang.t("processing_face"), fontSize = 12.sp)
                     }
                 }
-
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(modifier = Modifier.size(70.dp).clip(CircleShape).background(BrandGreenLight),
                         contentAlignment = Alignment.Center) {
@@ -276,38 +263,35 @@ private fun AddEditStaffDialog(
                     }
                     Spacer(Modifier.width(12.dp))
                     Column {
-                        Button(
-                            onClick = { showCamera = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = BrandGreen)
-                        ) {
+                        Button(onClick = { showCamera = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = BrandGreen)) {
                             Icon(Icons.Default.CameraAlt, null)
                             Spacer(Modifier.width(6.dp))
-                            Text(if (photoPath.isEmpty()) "Face Capture" else "Change Face", fontSize = 12.sp)
+                            Text(if (photoPath.isEmpty()) Lang.t("face_capture") else Lang.t("change_face"), fontSize = 12.sp)
                         }
                         if (faceEmbedding.isNotBlank()) {
-                            Text("✅ Face registered", fontSize = 10.sp, color = BrandGreen)
+                            Text("✅ ${Lang.t("face_registered")}", fontSize = 10.sp, color = BrandGreen)
                         } else {
-                            Text("⚠️ Face zaroori hai", fontSize = 10.sp, color = BrandOrange)
+                            Text("⚠️ ${Lang.t("face_required")}", fontSize = 10.sp, color = BrandOrange)
                         }
                     }
                 }
-
                 OutlinedTextField(value = name, onValueChange = { name = it },
-                    label = { Text("Naam *") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    label = { Text(Lang.t("staff_name")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = phone, onValueChange = { phone = it },
-                    label = { Text("Mobile Number") }, singleLine = true,
+                    label = { Text(Lang.t("mobile_number")) }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = designation, onValueChange = { designation = it },
-                    label = { Text("Designation") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    label = { Text(Lang.t("designation")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = wageText, onValueChange = { wageText = it.filter { c -> c.isDigit() } },
-                    label = { Text("Daily Wage (Rs.)") }, singleLine = true,
+                    label = { Text(Lang.t("daily_wage")) }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth())
-                Text("Role:", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text("${Lang.t("role")}:", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = role == "STAFF", onClick = { role = "STAFF" }, label = { Text("Staff") })
-                    FilterChip(selected = role == "MODERATOR", onClick = { role = "MODERATOR" }, label = { Text("Moderator") })
+                    FilterChip(selected = role == "STAFF", onClick = { role = "STAFF" }, label = { Text(Lang.t("staff")) })
+                    FilterChip(selected = role == "MODERATOR", onClick = { role = "MODERATOR" }, label = { Text(Lang.t("moderator")) })
                 }
                 if (error != null) Text(error!!, color = Color.Red, fontSize = 12.sp)
             }
@@ -315,24 +299,20 @@ private fun AddEditStaffDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (name.isBlank()) { error = "Naam zaroori"; return@Button }
-                    if (faceEmbedding.isBlank()) { error = "Face capture zaroori hai"; return@Button }
+                    if (name.isBlank()) { error = Lang.t("staff_name"); return@Button }
+                    if (faceEmbedding.isBlank()) { error = Lang.t("face_required"); return@Button }
                     val wage = wageText.toDoubleOrNull() ?: 0.0
                     val entity = (initial ?: StaffEntity(name = name, joinDate = today)).copy(
-                        name = name.trim(),
-                        phone = phone.trim(),
-                        designation = designation.trim(),
-                        role = role,
-                        dailyWage = wage,
-                        photoPath = photoPath,
-                        faceEmbedding = faceEmbedding
+                        name = name.trim(), phone = phone.trim(),
+                        designation = designation.trim(), role = role,
+                        dailyWage = wage, photoPath = photoPath, faceEmbedding = faceEmbedding
                     )
                     onSave(entity)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
                 enabled = !processing
-            ) { Text("Save") }
+            ) { Text(Lang.t("save")) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(Lang.t("cancel")) } }
     )
 }
