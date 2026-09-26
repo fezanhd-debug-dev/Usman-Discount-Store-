@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.usmandiscountstore.app.data.local.AppDatabase
@@ -42,10 +43,13 @@ fun AdminSettingsScreen(onBack: () -> Unit) {
 
     var adminPwd by remember { mutableStateOf("") }
     var modPwd by remember { mutableStateOf("") }
+    var showAdminPwd by remember { mutableStateOf(false) }
+    var showModPwd by remember { mutableStateOf(false) }
     var pwdMsg by remember { mutableStateOf<String?>(null) }
 
     var loaded by remember { mutableStateOf(false) }
     var savedMsg by remember { mutableStateOf<String?>(null) }
+    var showMap by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         val s = dao.get() ?: StoreSettingsEntity()
@@ -59,6 +63,21 @@ fun AdminSettingsScreen(onBack: () -> Unit) {
         adminPwd = PasswordHelper.getAdminPassword(context)
         modPwd = PasswordHelper.getModeratorPassword(context)
         loaded = true
+    }
+
+    if (showMap) {
+        StoreLocationPickerScreen(
+            initialLat = latText.toDoubleOrNull() ?: 29.6974,
+            initialLon = lonText.toDoubleOrNull() ?: 72.5518,
+            onBack = { showMap = false },
+            onLocationPicked = { lat, lon, address ->
+                latText = lat.toString()
+                lonText = lon.toString()
+                if (address.isNotBlank()) storeAddress = address
+                showMap = false
+            }
+        )
+        return
     }
 
     Scaffold(
@@ -98,9 +117,21 @@ fun AdminSettingsScreen(onBack: () -> Unit) {
             OutlinedTextField(value = storeName, onValueChange = { storeName = it },
                 label = { Text("Store Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(value = storeAddress, onValueChange = { storeAddress = it },
-                label = { Text("Address") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                label = { Text("Address") }, modifier = Modifier.fillMaxWidth(), minLines = 1, maxLines = 2)
 
-            SectionTitle("📍 Geofence Location")
+            // ===== MAP PICKER BUTTON =====
+            Button(
+                onClick = { showMap = true },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = BrandOrange)
+            ) {
+                Icon(Icons.Default.LocationOn, null)
+                Spacer(Modifier.width(8.dp))
+                Text("Pick Store Location from Map", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            }
+
+            SectionTitle("📍 Geofence Coordinates")
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(value = latText, onValueChange = { latText = it },
                     label = { Text("Latitude") }, singleLine = true,
@@ -114,6 +145,7 @@ fun AdminSettingsScreen(onBack: () -> Unit) {
             OutlinedTextField(value = radiusText, onValueChange = { radiusText = it.filter { c -> c.isDigit() } },
                 label = { Text("Radius (meters)") }, singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                supportingText = { Text("Attendance allowed within this radius") },
                 modifier = Modifier.fillMaxWidth())
 
             SectionTitle("📱 WhatsApp Alerts")
@@ -135,7 +167,7 @@ fun AdminSettingsScreen(onBack: () -> Unit) {
                 }
             }
 
-            SectionTitle("🔐 Passwords")
+            SectionTitle("🔐 Security")
             if (pwdMsg != null) {
                 Card(shape = RoundedCornerShape(10.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFDCFCE7)),
@@ -145,12 +177,30 @@ fun AdminSettingsScreen(onBack: () -> Unit) {
             }
             OutlinedTextField(value = adminPwd, onValueChange = { adminPwd = it },
                 label = { Text("Admin Password") }, singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = if (showAdminPwd) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { showAdminPwd = !showAdminPwd }) {
+                        Icon(
+                            imageVector = if (showAdminPwd) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = if (showAdminPwd) "Hide" else "Show",
+                            tint = BrandGreen
+                        )
+                    }
+                },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 modifier = Modifier.fillMaxWidth())
             OutlinedTextField(value = modPwd, onValueChange = { modPwd = it },
                 label = { Text("Moderator Password") }, singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = if (showModPwd) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { showModPwd = !showModPwd }) {
+                        Icon(
+                            imageVector = if (showModPwd) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = if (showModPwd) "Hide" else "Show",
+                            tint = BrandGreen
+                        )
+                    }
+                },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 modifier = Modifier.fillMaxWidth())
             Button(
@@ -169,7 +219,7 @@ fun AdminSettingsScreen(onBack: () -> Unit) {
             ) {
                 Icon(Icons.Default.Lock, null)
                 Spacer(Modifier.width(8.dp))
-                Text("Passwords Update Karein", fontWeight = FontWeight.Bold)
+                Text("Update Passwords", fontWeight = FontWeight.Bold)
             }
 
             Spacer(Modifier.height(8.dp))

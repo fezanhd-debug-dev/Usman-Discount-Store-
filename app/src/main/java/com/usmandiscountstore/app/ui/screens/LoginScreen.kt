@@ -2,11 +2,15 @@ package com.usmandiscountstore.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,6 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.usmandiscountstore.app.ui.theme.*
@@ -30,14 +35,20 @@ fun LoginScreen(onLoginSuccess: (role: String, name: String) -> Unit) {
     var selectedRole by remember { mutableStateOf("ADMIN") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
 
     Box(
-        modifier = Modifier.fillMaxSize().background(BackgroundLight).padding(24.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BackgroundLight)
+            .imePadding()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             AppLogo(size = 100.dp)
@@ -87,7 +98,16 @@ fun LoginScreen(onLoginSuccess: (role: String, name: String) -> Unit) {
                 value = password, onValueChange = { password = it; errorMsg = null },
                 label = { Text("Password") },
                 leadingIcon = { Icon(Icons.Default.Lock, null, tint = BrandGreen) },
-                visualTransformation = PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(
+                            imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = if (passwordVisible) "Hide" else "Show",
+                            tint = BrandGreen
+                        )
+                    }
+                },
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp), singleLine = true
