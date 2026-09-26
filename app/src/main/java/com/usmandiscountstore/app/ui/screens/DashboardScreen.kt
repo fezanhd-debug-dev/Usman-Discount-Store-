@@ -29,10 +29,10 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
-    onNavigateSalary: () -> Unit,
     onNavigateStaff: () -> Unit,
     onNavigateAttendance: () -> Unit,
     onNavigateAdvance: () -> Unit,
+    onNavigateSalary: () -> Unit,
     onNavigateSettings: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -70,6 +70,7 @@ fun DashboardScreen(
             Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            // ===== WELCOME CARD =====
             Card(shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -97,6 +98,7 @@ fun DashboardScreen(
 
             Text(todayDate, fontSize = 12.sp, color = TextGray, modifier = Modifier.padding(start = 4.dp))
 
+            // ===== GEOFENCE CARD =====
             Card(shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(containerColor = BrandGreenLight),
                 modifier = Modifier.fillMaxWidth()) {
@@ -113,32 +115,26 @@ fun DashboardScreen(
             Text("Store Modules", fontWeight = FontWeight.Bold, color = TextDark, fontSize = 15.sp,
                 modifier = Modifier.padding(top = 8.dp))
 
-            ModuleCard("Hazri Lagao", "GPS + Half Day option", Icons.Default.CheckCircle, BrandGreen, onNavigateAttendance)
+            // ===== MODULES =====
+            ModuleCard("Hazri Lagao", "GPS se hazri aur face verify",
+                Icons.Default.CheckCircle, BrandGreen, onNavigateAttendance)
 
             if (isAdmin) {
-                ModuleCard("Mulazimeen Management", "Staff add / edit / delete", Icons.Default.People, Color(0xFF2563EB), onNavigateStaff)
+                ModuleCard("Mulazimeen Management", "Staff add / edit / delete",
+                    Icons.Default.People, Color(0xFF2563EB), onNavigateStaff)
             } else {
-                ModuleCard("Mulazimeen List", "Staff dekho", Icons.Default.People, Color(0xFF2563EB), onNavigateStaff)
+                ModuleCard("Mulazimeen List", "Staff ki tafseelat",
+                    Icons.Default.People, Color(0xFF2563EB), onNavigateStaff)
             }
 
-            ModuleCard("Advance & Peshgi Khata", "Udhaar aur cash peshgi", Icons.Default.AccountBalanceWallet, BrandOrange, onNavigateAdvance)
+            ModuleCard("Advance & Peshgi Khata", "Udhaar aur cash peshgi ka record",
+                Icons.Default.AccountBalanceWallet, BrandOrange, onNavigateAdvance)
 
             if (isAdmin) {
-                ModuleCard("Salary Slips & Payroll", "Mahana tankhwah + PDF", Icons.Default.ReceiptLong, Color(0xFF7C3AED), onNavigateSalary)
-                ModuleCard("Admin Settings", "WhatsApp + password change", Icons.Default.Tune, Color(0xFF4B5563), onNavigateSettings)
-            }
-
-            if (!isAdmin) {
-                Card(shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
-                    modifier = Modifier.fillMaxWidth()) {
-                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Info, null, tint = BrandOrange)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Moderator: Salary aur Settings Admin ke paas hain.",
-                            fontSize = 12.sp, color = Color(0xFFB45309))
-                    }
-                }
+                ModuleCard("Salary Slips & Payroll", "Mahana tankhwah aur PDF slip",
+                    Icons.Default.ReceiptLong, Color(0xFF7C3AED), onNavigateSalary)
+                ModuleCard("Admin Settings", "Store aur security settings",
+                    Icons.Default.Tune, Color(0xFF4B5563), onNavigateSettings)
             }
 
             CopyrightFooter()

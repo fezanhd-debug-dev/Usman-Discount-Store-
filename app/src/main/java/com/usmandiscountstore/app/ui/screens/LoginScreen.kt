@@ -28,7 +28,7 @@ fun LoginScreen(onLoginSuccess: (role: String, name: String) -> Unit) {
 
     val context = LocalContext.current
     var selectedRole by remember { mutableStateOf("ADMIN") }
-    var username by remember { mutableStateOf("admin") }
+    var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var errorMsg by remember { mutableStateOf<String?>(null) }
 
@@ -52,7 +52,7 @@ fun LoginScreen(onLoginSuccess: (role: String, name: String) -> Unit) {
                 modifier = Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(4.dp)) {
                     Button(
-                        onClick = { selectedRole = "ADMIN"; username = "admin" },
+                        onClick = { selectedRole = "ADMIN"; errorMsg = null },
                         modifier = Modifier.weight(1f).height(44.dp),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(
@@ -62,7 +62,7 @@ fun LoginScreen(onLoginSuccess: (role: String, name: String) -> Unit) {
                         elevation = null
                     ) { Text("Admin", fontWeight = FontWeight.Bold) }
                     Button(
-                        onClick = { selectedRole = "MODERATOR"; username = "moderator" },
+                        onClick = { selectedRole = "MODERATOR"; errorMsg = null },
                         modifier = Modifier.weight(1f).height(44.dp),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(
@@ -76,7 +76,7 @@ fun LoginScreen(onLoginSuccess: (role: String, name: String) -> Unit) {
 
             Spacer(Modifier.height(20.dp))
             OutlinedTextField(
-                value = username, onValueChange = { username = it },
+                value = username, onValueChange = { username = it; errorMsg = null },
                 label = { Text("Username") },
                 leadingIcon = { Icon(Icons.Default.Person, null, tint = BrandGreen) },
                 modifier = Modifier.fillMaxWidth(),
@@ -84,7 +84,7 @@ fun LoginScreen(onLoginSuccess: (role: String, name: String) -> Unit) {
             )
             Spacer(Modifier.height(14.dp))
             OutlinedTextField(
-                value = password, onValueChange = { password = it },
+                value = password, onValueChange = { password = it; errorMsg = null },
                 label = { Text("Password") },
                 leadingIcon = { Icon(Icons.Default.Lock, null, tint = BrandGreen) },
                 visualTransformation = PasswordVisualTransformation(),
@@ -106,8 +106,13 @@ fun LoginScreen(onLoginSuccess: (role: String, name: String) -> Unit) {
                     else
                         PasswordHelper.getModeratorPassword(context)
 
-                    if (password == correct) {
-                        val name = if (selectedRole == "ADMIN") "Muhammad Usman Nawaz" else "Muzammal Shah"
+                    if (username.isBlank()) {
+                        errorMsg = "Username darj karein"
+                    } else if (password == correct) {
+                        val name = if (selectedRole == "ADMIN")
+                            "Muhammad Usman Nawaz"
+                        else
+                            username.trim().replaceFirstChar { it.uppercase() }
                         SecurityPreferences(context).saveSession(name, selectedRole)
                         onLoginSuccess(selectedRole, name)
                     } else {
@@ -119,11 +124,7 @@ fun LoginScreen(onLoginSuccess: (role: String, name: String) -> Unit) {
                 colors = ButtonDefaults.buttonColors(containerColor = BrandGreen)
             ) { Text("Login Karein", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
 
-            Spacer(Modifier.height(12.dp))
-            Text("Default: admin=admin123 | moderator=mod123",
-                fontSize = 11.sp, color = TextGray)
-
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
             CopyrightFooter()
         }
     }
