@@ -19,6 +19,8 @@ object Routes {
     const val SALARY = "salary"
     const val SALARY_SHEET = "salary_sheet"
     const val LEAVE = "leave/{isAdmin}"
+    const val SUPER_ADMIN_LOGIN = "super_admin_login"
+    const val SUPER_ADMIN_PANEL = "super_admin_panel"
     fun historyRoute(staffId: Long = 0L) = "history/$staffId"
     fun leaveRoute(isAdmin: Boolean) = "leave/$isAdmin"
 }
@@ -28,12 +30,37 @@ fun AppNavGraph(navController: NavHostController) {
     NavHost(navController = navController, startDestination = Routes.LOGIN) {
 
         composable(Routes.LOGIN) {
-            LoginScreen(onLoginSuccess = { _, _ ->
-                navController.navigate(Routes.DASHBOARD) {
-                    popUpTo(Routes.LOGIN) { inclusive = true }
+            LoginScreen(
+                onLoginSuccess = { _, _ ->
+                    navController.navigate(Routes.DASHBOARD) {
+                        popUpTo(Routes.LOGIN) { inclusive = true }
+                    }
+                },
+                onSuperAdminUnlock = {
+                    navController.navigate(Routes.SUPER_ADMIN_LOGIN)
+                }
+            )
+        }
+
+        composable(Routes.SUPER_ADMIN_LOGIN) {
+            SuperAdminLoginScreen(
+                onSuccess = {
+                    navController.navigate(Routes.SUPER_ADMIN_PANEL) {
+                        popUpTo(Routes.SUPER_ADMIN_LOGIN) { inclusive = true }
+                    }
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.SUPER_ADMIN_PANEL) {
+            SuperAdminScreen(onLogout = {
+                navController.navigate(Routes.LOGIN) {
+                    popUpTo(0) { inclusive = true }
                 }
             })
         }
+
         composable(Routes.DASHBOARD) {
             DashboardScreen(
                 onNavigateStaff = { navController.navigate(Routes.STAFF_LIST) },

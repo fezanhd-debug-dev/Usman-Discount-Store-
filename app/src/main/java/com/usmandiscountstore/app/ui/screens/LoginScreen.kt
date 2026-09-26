@@ -1,5 +1,6 @@
 package com.usmandiscountstore.app.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -30,14 +31,20 @@ import com.usmandiscountstore.app.util.SecurityPreferences
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LoginScreen(onLoginSuccess: (role: String, name: String) -> Unit) {
-
+fun LoginScreen(
+    onLoginSuccess: (role: String, name: String) -> Unit,
+    onSuperAdminUnlock: () -> Unit = {}
+) {
     val context = LocalContext.current
     var selectedRole by remember { mutableStateOf("ADMIN") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
+
+    // Secret 11-tap counter
+    var tapCount by remember { mutableIntStateOf(0) }
+    var lastTapTime by remember { mutableLongStateOf(0L) }
 
     Box(
         modifier = Modifier
@@ -52,7 +59,6 @@ fun LoginScreen(onLoginSuccess: (role: String, name: String) -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top bar: Language picker
             Box(Modifier.fillMaxWidth()) {
                 Box(Modifier.align(Alignment.TopEnd)) {
                     LanguagePickerInTopBar(tint = BrandGreen)
@@ -154,7 +160,26 @@ fun LoginScreen(onLoginSuccess: (role: String, name: String) -> Unit) {
             ) { Text(Lang.t("login_button"), fontSize = 16.sp, fontWeight = FontWeight.Bold) }
 
             Spacer(Modifier.height(16.dp))
-            Text(Lang.t("copyright"), fontSize = 10.sp, color = TextGray)
+
+            // Secret tap on copyright
+            CopyrightFooter(onSecretTap = {
+                val now = System.currentTimeMillis()
+                // Reset counter if more than 3 seconds gap
+                if (now - lastTapTime > 3000L) tapCount = 0
+                lastTapTime = now
+                tapCount++
+
+                // Subtle feedback every 5 taps
+                if (tapCount in listOf(3, 6, 9)) {
+                    Toast.makeText(context, "${11 - tapCount} taps to unlock...", Toast.LENGTH_SHORT).show()
+                }
+
+                if (tapCount >= 11) {
+                    tapCount = 0
+                    Toast.makeText(context, "🔓 Super Admin unlocked", Toast.LENGTH_SHORT).show()
+                    onSuperAdminUnlock()
+                }
+            })
         }
     }
 }
