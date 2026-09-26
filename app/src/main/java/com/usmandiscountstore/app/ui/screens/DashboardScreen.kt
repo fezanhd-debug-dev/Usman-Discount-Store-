@@ -34,6 +34,7 @@ fun DashboardScreen(
     onNavigateHistory: () -> Unit,
     onNavigateAdvance: () -> Unit,
     onNavigateSalary: () -> Unit,
+    onNavigateSalarySheet: () -> Unit,
     onNavigateSettings: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -71,7 +72,6 @@ fun DashboardScreen(
             Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Welcome Card
             Card(shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -132,7 +132,9 @@ fun DashboardScreen(
                 Icons.Default.AccountBalanceWallet, BrandOrange, onNavigateAdvance)
 
             if (isAdmin) {
-                ModuleCard("Salary Slips & Payroll", "Mahana tankhwah aur PDF",
+                ModuleCard("Salary Sheet (All Staff)", "Monthly + CSV export",
+                    Icons.Default.TableChart, Color(0xFF16A34A), onNavigateSalarySheet)
+                ModuleCard("Salary Slips & Payroll", "Ek staff ka PDF slip",
                     Icons.Default.ReceiptLong, Color(0xFF7C3AED), onNavigateSalary)
                 ModuleCard("Admin Settings", "Store + security",
                     Icons.Default.Tune, Color(0xFF4B5563), onNavigateSettings)

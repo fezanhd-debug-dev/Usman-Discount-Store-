@@ -17,6 +17,7 @@ object Routes {
     const val ADMIN_SETTINGS = "admin_settings"
     const val ADVANCE = "advance"
     const val SALARY = "salary"
+    const val SALARY_SHEET = "salary_sheet"
     fun historyRoute(staffId: Long = 0L) = "history/$staffId"
 }
 
@@ -38,6 +39,7 @@ fun AppNavGraph(navController: NavHostController) {
                 onNavigateHistory = { navController.navigate(Routes.historyRoute(0L)) },
                 onNavigateAdvance = { navController.navigate(Routes.ADVANCE) },
                 onNavigateSalary = { navController.navigate(Routes.SALARY) },
+                onNavigateSalarySheet = { navController.navigate(Routes.SALARY_SHEET) },
                 onNavigateSettings = { navController.navigate(Routes.ADMIN_SETTINGS) },
                 onLogout = {
                     navController.navigate(Routes.LOGIN) { popUpTo(0) { inclusive = true } }
@@ -56,5 +58,6 @@ fun AppNavGraph(navController: NavHostController) {
         composable(Routes.ADMIN_SETTINGS) { AdminSettingsScreen(onBack = { navController.popBackStack() }) }
         composable(Routes.ADVANCE) { AdvanceKhataScreen(onBack = { navController.popBackStack() }) }
         composable(Routes.SALARY) { SalarySlipScreen(onBack = { navController.popBackStack() }) }
+        composable(Routes.SALARY_SHEET) { SalarySheetScreen(onBack = { navController.popBackStack() }) }
     }
 }

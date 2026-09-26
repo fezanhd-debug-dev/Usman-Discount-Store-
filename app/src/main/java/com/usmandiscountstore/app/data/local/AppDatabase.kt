@@ -6,10 +6,12 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.usmandiscountstore.app.data.local.dao.AdvanceDao
 import com.usmandiscountstore.app.data.local.dao.AttendanceDao
+import com.usmandiscountstore.app.data.local.dao.BonusDao
 import com.usmandiscountstore.app.data.local.dao.StaffDao
 import com.usmandiscountstore.app.data.local.dao.StoreSettingsDao
 import com.usmandiscountstore.app.data.local.entity.AdvanceEntity
 import com.usmandiscountstore.app.data.local.entity.AttendanceEntity
+import com.usmandiscountstore.app.data.local.entity.BonusEntity
 import com.usmandiscountstore.app.data.local.entity.StaffEntity
 import com.usmandiscountstore.app.data.local.entity.StoreSettingsEntity
 
@@ -18,9 +20,10 @@ import com.usmandiscountstore.app.data.local.entity.StoreSettingsEntity
         StaffEntity::class,
         AttendanceEntity::class,
         StoreSettingsEntity::class,
-        AdvanceEntity::class
+        AdvanceEntity::class,
+        BonusEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -28,6 +31,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun attendanceDao(): AttendanceDao
     abstract fun storeSettingsDao(): StoreSettingsDao
     abstract fun advanceDao(): AdvanceDao
+    abstract fun bonusDao(): BonusDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
