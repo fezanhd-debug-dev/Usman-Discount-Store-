@@ -42,7 +42,7 @@ fun LoginScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
 
-    // Secret 11-tap counter
+    // Secret 21-tap counter
     var tapCount by remember { mutableIntStateOf(0) }
     var lastTapTime by remember { mutableLongStateOf(0L) }
 
@@ -161,20 +161,20 @@ fun LoginScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // Secret tap on copyright
+            // Secret 21-tap on copyright
             CopyrightFooter(onSecretTap = {
                 val now = System.currentTimeMillis()
-                // Reset counter if more than 3 seconds gap
-                if (now - lastTapTime > 3000L) tapCount = 0
+                // Reset counter if more than 5 seconds gap (21 taps ke liye 5 sec time diya hai)
+                if (now - lastTapTime > 5000L) tapCount = 0
                 lastTapTime = now
                 tapCount++
 
-                // Subtle feedback every 5 taps
-                if (tapCount in listOf(3, 6, 9)) {
-                    Toast.makeText(context, "${11 - tapCount} taps to unlock...", Toast.LENGTH_SHORT).show()
+                // Feedback starts from 18th tap (18, 19, 20)
+                if (tapCount in listOf(18, 19, 20)) {
+                    Toast.makeText(context, "${21 - tapCount} taps to unlock...", Toast.LENGTH_SHORT).show()
                 }
 
-                if (tapCount >= 11) {
+                if (tapCount >= 21) {
                     tapCount = 0
                     Toast.makeText(context, "🔓 Super Admin unlocked", Toast.LENGTH_SHORT).show()
                     onSuperAdminUnlock()

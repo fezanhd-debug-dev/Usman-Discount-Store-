@@ -58,7 +58,6 @@ fun SuperAdminScreen(onLogout: () -> Unit) {
     ) { pad ->
         Column(Modifier.fillMaxSize().padding(pad)) {
 
-            // Warning banner if default password
             if (SuperAdminHelper.isDefaultPassword(context)) {
                 Surface(color = Color(0xFFFEF3C7), modifier = Modifier.fillMaxWidth()) {
                     Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -72,7 +71,6 @@ fun SuperAdminScreen(onLogout: () -> Unit) {
                 }
             }
 
-            // Tabs
             TabRow(
                 selectedTabIndex = selectedTab,
                 containerColor = Color.White,
@@ -87,7 +85,6 @@ fun SuperAdminScreen(onLogout: () -> Unit) {
                 }
             }
 
-            // Content
             Column(
                 Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -112,7 +109,6 @@ private fun LicenseTab() {
         subtitle = "App activation & expiry"
     )
 
-    // Placeholder card
     Card(
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),

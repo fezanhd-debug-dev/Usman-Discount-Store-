@@ -1,9 +1,11 @@
 package com.usmandiscountstore.app.ui.screens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -13,16 +15,20 @@ import com.usmandiscountstore.app.util.Lang
 
 /**
  * Copyright footer.
- * @param onSecretTap optional callback — fired on tap (used for 11-tap Super Admin unlock)
+ * @param onSecretTap optional callback — fired on tap (used for 21-tap Super Admin unlock)
  */
 @Composable
 fun CopyrightFooter(onSecretTap: (() -> Unit)? = null) {
+    val interactionSource = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 12.dp)
             .then(
-                if (onSecretTap != null) Modifier.clickable { onSecretTap() }
+                if (onSecretTap != null) Modifier.clickable(
+                    interactionSource = interactionSource,
+                    indication = null // Highlight/Ripple band kar diya
+                ) { onSecretTap() }
                 else Modifier
             ),
         horizontalArrangement = Arrangement.Center,

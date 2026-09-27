@@ -45,7 +45,6 @@ fun SuperAdminLoginScreen(
             modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Lock icon in circular badge
             Box(
                 modifier = Modifier.size(96.dp).background(
                     Color(0xFF1E293B),
@@ -71,7 +70,6 @@ fun SuperAdminLoginScreen(
 
             Spacer(Modifier.height(36.dp))
 
-            // Password input
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it; error = null },
