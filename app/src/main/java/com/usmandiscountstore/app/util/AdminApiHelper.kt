@@ -78,3 +78,38 @@ object AdminApiHelper {
         }
     }
 }
+    // 4. Device Ko Delete Karein (Remove)
+    suspend fun deleteDevice(hardwareId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val json = JSONObject().apply { put("hardware_id", hardwareId) }
+            val body = json.toString().toRequestBody("application/json".toMediaType())
+            val request = Request.Builder()
+                .url("$BASE_URL/api/admin/delete-device")
+                .post(body)
+                .build()
+            client.newCall(request).execute().use { response -> response.isSuccessful }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    // 5. Manually Naya Device Add Karein
+    suspend fun addDeviceManually(hardwareId: String, storeName: String, months: Int?): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val json = JSONObject().apply {
+                put("hardware_id", hardwareId)
+                put("store_name", storeName)
+                if (months != null) put("duration_months", months)
+            }
+            val body = json.toString().toRequestBody("application/json".toMediaType())
+            val request = Request.Builder()
+                .url("$BASE_URL/api/admin/add-device")
+                .post(body)
+                .build()
+            client.newCall(request).execute().use { response -> response.isSuccessful }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
