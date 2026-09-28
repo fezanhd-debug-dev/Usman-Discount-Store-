@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Location Permission Check (Pehle jaisa hi)
+        // Location Permission Check
         val needs = mutableListOf<String>()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
             != PackageManager.PERMISSION_GRANTED) {
@@ -46,10 +46,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    
-                    // ==========================================
-                    // LICENSE CHECK LOGIC (NEW)
-                    // ==========================================
+
                     var isLicenseChecked by remember { mutableStateOf(false) }
                     var isLicenseValid by remember { mutableStateOf(false) }
                     var retryTrigger by remember { mutableIntStateOf(0) }
@@ -58,20 +55,34 @@ class MainActivity : ComponentActivity() {
                         val context = applicationContext
                         isLicenseChecked = false
 
-                        // 1. Pehle server se verify karein
-                        isLicenseValid = LicenseManager.verifyLicense(context)
+                        // 1. Pehle LOCAL cache check karein (agar pehle se valid hai to foran app khul jaye)
+                        val localValid = LicenseManager.isLicenseLocallyValid(context)
 
-                        // 2. Agar valid nahi hai, to check karein ke device register hai ya nahi
-                        // Agar pehli baar app khuli hai (trial activate nahi hua), to register karein
-                        if (!isLicenseValid && !LicenseManager.isLicenseLocallyValid(context)) {
-                            LicenseManager.registerDevice(context, "Usman Discount Store")
-                            isLicenseValid = LicenseManager.verifyLicense(context)
+                        if (localValid) {
+                            // Agar local cache valid hai, to foran app dikhayein
+                            isLicenseValid = true
+                            isLicenseChecked = true
+                            
+                            // Background mein server se verify karein (agar block/expire ho gaya ho)
+                            val serverValid = LicenseManager.verifyLicense(context)
+                            if (!serverValid) {
+                                // Agar server ne block/expire kar diya hai, to lock screen dikhayein
+                                isLicenseValid = false
+                            }
+                        } else {
+                            // 2. Agar local cache nahi hai, to server se register + verify karein
+                            val registered = LicenseManager.registerDevice(context, "Usman Discount Store")
+                            if (registered) {
+                                isLicenseValid = LicenseManager.verifyLicense(context)
+                            } else {
+                                isLicenseValid = false
+                            }
+                            isLicenseChecked = true
                         }
-                        isLicenseChecked = true
                     }
 
                     if (!isLicenseChecked) {
-                        // Loading Screen (Jab tak server se jawab aa raha hai)
+                        // Loading Screen
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
@@ -79,13 +90,13 @@ class MainActivity : ComponentActivity() {
                             CircularProgressIndicator()
                         }
                     } else if (!isLicenseValid) {
-                        // License Lock Screen (Agar license expire/blocked hai)
+                        // Lock Screen
                         LicenseLockScreen(onRetry = {
                             isLicenseChecked = false
-                            retryTrigger++ // Dobara server se check karne ke liye
+                            retryTrigger++
                         })
                     } else {
-                        // ✅ License Valid → Normal App Flow
+                        // ✅ License Valid → Normal App
                         val navController = rememberNavController()
                         AppNavGraph(navController = navController)
                     }
