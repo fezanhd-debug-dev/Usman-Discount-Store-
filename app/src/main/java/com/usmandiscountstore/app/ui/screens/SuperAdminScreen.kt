@@ -1,7 +1,6 @@
 package com.usmandiscountstore.app.ui.screens
 
 import android.widget.Toast
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -22,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.usmandiscountstore.app.util.AdminApiHelper
 import com.usmandiscountstore.app.util.SuperAdminHelper
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -167,6 +167,8 @@ private fun DashboardCard(title: String, value: String, color: Color, modifier: 
 @Composable
 private fun DevicesListTab() {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope() // 👈 Ye line add ki gayi hai
+    
     var devices by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var selectedDevice by remember { mutableStateOf<JSONObject?>(null) }
@@ -202,8 +204,8 @@ private fun DevicesListTab() {
                     listOf(3, 6, 12).forEach { months ->
                         Button(
                             onClick = {
-                                // Activate karein
-                                kotlinx.coroutines.GlobalScope.launch {
+                                // 🛠️ FIXED: scope.launch use kiya
+                                scope.launch {
                                     val success = AdminApiHelper.activateDevice(
                                         selectedDevice?.optString("hardware_id") ?: "", months)
                                     if (success) {
@@ -237,7 +239,8 @@ private fun DevicesListTab() {
             confirmButton = {
                 Button(
                     onClick = {
-                        kotlinx.coroutines.GlobalScope.launch {
+                        // 🛠️ FIXED: scope.launch use kiya
+                        scope.launch {
                             val success = AdminApiHelper.blockDevice(selectedDevice?.optString("hardware_id") ?: "")
                             if (success) Toast.makeText(context, "🚫 Device Blocked", Toast.LENGTH_SHORT).show()
                             else Toast.makeText(context, "❌ Failed", Toast.LENGTH_SHORT).show()
@@ -262,7 +265,8 @@ private fun DevicesListTab() {
         ) {
             Text("Registered Devices (${devices.size})", fontWeight = FontWeight.Bold, fontSize = 14.sp)
             IconButton(onClick = { 
-                kotlinx.coroutines.GlobalScope.launch { loadDevices() }
+                // 🛠️ FIXED: scope.launch use kiya
+                scope.launch { loadDevices() }
             }) { Icon(Icons.Default.Refresh, "Refresh", tint = Color(0xFF0F172A)) }
         }
 
