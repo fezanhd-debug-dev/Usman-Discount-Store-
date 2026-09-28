@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.navigation.compose.rememberNavController
+import com.usmandiscountstore.app.data.local.AppDatabase
 import com.usmandiscountstore.app.navigation.AppNavGraph
 import com.usmandiscountstore.app.ui.screens.LicenseLockScreen
 import com.usmandiscountstore.app.util.LicenseManager
@@ -55,23 +56,33 @@ class MainActivity : ComponentActivity() {
                         val context = applicationContext
                         isLicenseChecked = false
 
-                        // 1. Pehle LOCAL cache check karein (agar pehle se valid hai to foran app khul jaye)
+                        // ✅ Room DB se Store Name padhein (agar user ne set kiya hai)
+                        val storeNameFromDb = try {
+                            AppDatabase.get(context).storeSettingsDao().get()?.storeName
+                        } catch (e: Exception) {
+                            null
+                        }
+                        val finalStoreName = if (!storeNameFromDb.isNullOrBlank()) {
+                            storeNameFromDb
+                        } else {
+                            "Usman Discount Store"
+                        }
+
+                        // 1. Pehle LOCAL cache check karein
                         val localValid = LicenseManager.isLicenseLocallyValid(context)
 
                         if (localValid) {
-                            // Agar local cache valid hai, to foran app dikhayein
                             isLicenseValid = true
                             isLicenseChecked = true
                             
-                            // Background mein server se verify karein (agar block/expire ho gaya ho)
+                            // Background mein server se verify karein
                             val serverValid = LicenseManager.verifyLicense(context)
                             if (!serverValid) {
-                                // Agar server ne block/expire kar diya hai, to lock screen dikhayein
                                 isLicenseValid = false
                             }
                         } else {
-                            // 2. Agar local cache nahi hai, to server se register + verify karein
-                            val registered = LicenseManager.registerDevice(context, "Usman Discount Store")
+                            // 2. Server se register + verify karein
+                            val registered = LicenseManager.registerDevice(context, finalStoreName)
                             if (registered) {
                                 isLicenseValid = LicenseManager.verifyLicense(context)
                             } else {
