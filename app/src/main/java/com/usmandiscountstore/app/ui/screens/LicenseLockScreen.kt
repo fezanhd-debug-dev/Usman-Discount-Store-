@@ -62,7 +62,7 @@ fun LicenseLockScreen(onRetry: () -> Unit) {
             Button(
                 onClick = {
                     // 👇 YAHAN APNA WHATSAPP NUMBER DAALEIN (Country code ke saath, bina + ke)
-                    val adminWhatsAppNumber = "923001234567" 
+                    val adminWhatsAppNumber = "923437721639" 
                     val hardwareId = LicenseManager.getHardwareId(context)
                     val url = "https://wa.me/$adminWhatsAppNumber?text=Please%20activate%20my%20license.%20Hardware%20ID:%20$hardwareId"
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
