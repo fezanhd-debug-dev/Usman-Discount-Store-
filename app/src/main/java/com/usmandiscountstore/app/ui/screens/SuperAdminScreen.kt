@@ -91,7 +91,7 @@ fun SuperAdminScreen(onLogout: () -> Unit) {
 }
 
 // =========================================================
-// TAB 1: LICENSE DASHBOARD (Summary)
+// TAB 1: LICENSE DASHBOARD
 // =========================================================
 @Composable
 private fun LicenseDashboardTab() {
@@ -137,7 +137,7 @@ private fun LicenseDashboardTab() {
                 Column(Modifier.padding(18.dp)) {
                     Text("License Management", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     Spacer(Modifier.height(8.dp))
-                    Text("Devices ko activate ya block karne ke liye 'Devices' tab par jayein.",
+                    Text("Devices ko activate, block, add ya remove karne ke liye 'Devices' tab par jayein.",
                         fontSize = 12.sp, color = Color(0xFF6B7280))
                 }
             }
@@ -162,7 +162,7 @@ private fun DashboardCard(title: String, value: String, color: Color, modifier: 
 }
 
 // =========================================================
-// TAB 2: DEVICES LIST (Main Management)
+// TAB 2: DEVICES LIST
 // =========================================================
 @Composable
 private fun DevicesListTab() {
@@ -174,6 +174,8 @@ private fun DevicesListTab() {
     var selectedDevice by remember { mutableStateOf<JSONObject?>(null) }
     var showActivateDialog by remember { mutableStateOf(false) }
     var showBlockDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showAddDialog by remember { mutableStateOf(false) }
 
     suspend fun loadDevices() {
         isLoading = true
@@ -190,7 +192,78 @@ private fun DevicesListTab() {
 
     LaunchedEffect(Unit) { loadDevices() }
 
-    // Activation Dialog
+    // ========== ADD DEVICE DIALOG ==========
+    if (showAddDialog) {
+        var newHardwareId by remember { mutableStateOf("") }
+        var newStoreName by remember { mutableStateOf("") }
+        var newDuration by remember { mutableStateOf<Int?>(7) }
+        
+        AlertDialog(
+            onDismissRequest = { showAddDialog = false },
+            title = { Text("➕ Add New Device") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Manually naya device add karein.", fontSize = 12.sp, color = Color(0xFF6B7280))
+                    
+                    OutlinedTextField(
+                        value = newHardwareId,
+                        onValueChange = { newHardwareId = it },
+                        label = { Text("Hardware ID") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = newStoreName,
+                        onValueChange = { newStoreName = it },
+                        label = { Text("Store Name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    
+                    Text("Duration:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(7 to "7 Days", 3 to "3 Mo", 6 to "6 Mo", 12 to "12 Mo").forEach { (m, label) ->
+                            FilterChip(
+                                selected = newDuration == m,
+                                onClick = { newDuration = m },
+                                label = { Text(label, fontSize = 10.sp) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            if (newHardwareId.isBlank() || newStoreName.isBlank()) {
+                                Toast.makeText(context, "❌ Fields khali hain", Toast.LENGTH_SHORT).show()
+                                return@launch
+                            }
+                            val months = if (newDuration == 7) null else newDuration
+                            val success = AdminApiHelper.addDeviceManually(
+                                newHardwareId.trim(), newStoreName.trim(), months
+                            )
+                            if (success) {
+                                Toast.makeText(context, "✅ Device added", Toast.LENGTH_SHORT).show()
+                                showAddDialog = false
+                                loadDevices()
+                            } else {
+                                Toast.makeText(context, "❌ Failed (device already exists?)", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                ) { Text("Add", color = Color.White) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    // ========== ACTIVATE DIALOG ==========
     if (showActivateDialog && selectedDevice != null) {
         AlertDialog(
             onDismissRequest = { showActivateDialog = false },
@@ -229,7 +302,7 @@ private fun DevicesListTab() {
         )
     }
 
-    // Block Dialog
+    // ========== BLOCK DIALOG ==========
     if (showBlockDialog && selectedDevice != null) {
         AlertDialog(
             onDismissRequest = { showBlockDialog = false },
@@ -255,6 +328,39 @@ private fun DevicesListTab() {
         )
     }
 
+    // ========== DELETE DIALOG ==========
+    if (showDeleteDialog && selectedDevice != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("🗑️ Remove Device?") },
+            text = { 
+                Column {
+                    Text("Kya aap waqai is device ko server se permanently remove karna chahte hain?")
+                    Spacer(Modifier.height(8.dp))
+                    Text("Store: ${selectedDevice?.optString("store_name")}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text("Ye action undo nahi ho sakta!", color = Color(0xFFDC2626), fontSize = 12.sp)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            val success = AdminApiHelper.deleteDevice(selectedDevice?.optString("hardware_id") ?: "")
+                            if (success) Toast.makeText(context, "🗑️ Device Removed", Toast.LENGTH_SHORT).show()
+                            else Toast.makeText(context, "❌ Failed to remove", Toast.LENGTH_SHORT).show()
+                            showDeleteDialog = false
+                            loadDevices()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                ) { Text("Remove", color = Color.White) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
@@ -262,16 +368,31 @@ private fun DevicesListTab() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Registered Devices (${devices.size})", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            IconButton(onClick = { 
-                scope.launch { loadDevices() }
-            }) { Icon(Icons.Default.Refresh, "Refresh", tint = Color(0xFF0F172A)) }
+            Row {
+                // ➕ ADD DEVICE BUTTON
+                IconButton(onClick = { showAddDialog = true }) {
+                    Icon(Icons.Default.Add, "Add Device", tint = Color(0xFF16A34A))
+                }
+                // 🔄 REFRESH BUTTON
+                IconButton(onClick = { 
+                    scope.launch { loadDevices() }
+                }) { Icon(Icons.Default.Refresh, "Refresh", tint = Color(0xFF0F172A)) }
+            }
         }
 
         if (isLoading) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         } else if (devices.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No devices registered yet.", color = Color(0xFF6B7280))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("No devices registered yet.", color = Color(0xFF6B7280))
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = { showAddDialog = true }) {
+                        Icon(Icons.Default.Add, null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Add First Device")
+                    }
+                }
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -279,7 +400,6 @@ private fun DevicesListTab() {
                     val status = device.optString("status")
                     val licenseType = device.optString("license_type")
                     
-                    // 🛠️ FIX: Agar license_end null hai to trial_end dikhayein
                     val expiry = if (device.isNull("license_end") || device.optString("license_end").isEmpty()) {
                         "Trial ends: " + device.optString("trial_end").take(10)
                     } else {
@@ -293,8 +413,10 @@ private fun DevicesListTab() {
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(Modifier.padding(14.dp)) {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(device.optString("store_name"), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Text(device.optString("store_name"), fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                                    modifier = Modifier.weight(1f))
                                 Text(
                                     status.uppercase(),
                                     fontSize = 10.sp,
@@ -307,7 +429,7 @@ private fun DevicesListTab() {
                             Text("Type: $licenseType | $expiry", fontSize = 11.sp, color = Color(0xFF374151))
                             Spacer(Modifier.height(10.dp))
                             
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Button(
                                     onClick = {
                                         selectedDevice = device
@@ -316,7 +438,7 @@ private fun DevicesListTab() {
                                     modifier = Modifier.weight(1f).height(36.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
                                     contentPadding = PaddingValues(0.dp)
-                                ) { Text("Activate", fontSize = 11.sp) }
+                                ) { Text("Activate", fontSize = 10.sp) }
                                 
                                 Button(
                                     onClick = {
@@ -324,9 +446,25 @@ private fun DevicesListTab() {
                                         showBlockDialog = true
                                     },
                                     modifier = Modifier.weight(1f).height(36.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
                                     contentPadding = PaddingValues(0.dp)
-                                ) { Text("Block", fontSize = 11.sp) }
+                                ) { Text("Block", fontSize = 10.sp) }
+                                
+                                // 🗑️ DELETE BUTTON
+                                IconButton(
+                                    onClick = {
+                                        selectedDevice = device
+                                        showDeleteDialog = true
+                                    },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        "Remove",
+                                        tint = Color(0xFFDC2626),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -337,7 +475,7 @@ private fun DevicesListTab() {
 }
 
 // =========================================================
-// TAB 3: SECURITY (Password Change)
+// TAB 3: SECURITY
 // =========================================================
 @Composable
 private fun SecurityTab() {
