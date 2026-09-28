@@ -167,7 +167,7 @@ private fun DashboardCard(title: String, value: String, color: Color, modifier: 
 @Composable
 private fun DevicesListTab() {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope() // 👈 Ye line add ki gayi hai
+    val scope = rememberCoroutineScope()
     
     var devices by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -204,7 +204,6 @@ private fun DevicesListTab() {
                     listOf(3, 6, 12).forEach { months ->
                         Button(
                             onClick = {
-                                // 🛠️ FIXED: scope.launch use kiya
                                 scope.launch {
                                     val success = AdminApiHelper.activateDevice(
                                         selectedDevice?.optString("hardware_id") ?: "", months)
@@ -239,7 +238,6 @@ private fun DevicesListTab() {
             confirmButton = {
                 Button(
                     onClick = {
-                        // 🛠️ FIXED: scope.launch use kiya
                         scope.launch {
                             val success = AdminApiHelper.blockDevice(selectedDevice?.optString("hardware_id") ?: "")
                             if (success) Toast.makeText(context, "🚫 Device Blocked", Toast.LENGTH_SHORT).show()
@@ -265,7 +263,6 @@ private fun DevicesListTab() {
         ) {
             Text("Registered Devices (${devices.size})", fontWeight = FontWeight.Bold, fontSize = 14.sp)
             IconButton(onClick = { 
-                // 🛠️ FIXED: scope.launch use kiya
                 scope.launch { loadDevices() }
             }) { Icon(Icons.Default.Refresh, "Refresh", tint = Color(0xFF0F172A)) }
         }
@@ -281,7 +278,13 @@ private fun DevicesListTab() {
                 items(devices) { device ->
                     val status = device.optString("status")
                     val licenseType = device.optString("license_type")
-                    val expiry = device.optString("license_end").take(10)
+                    
+                    // 🛠️ FIX: Agar license_end null hai to trial_end dikhayein
+                    val expiry = if (device.isNull("license_end") || device.optString("license_end").isEmpty()) {
+                        "Trial ends: " + device.optString("trial_end").take(10)
+                    } else {
+                        "Expires: " + device.optString("license_end").take(10)
+                    }
                     
                     Card(
                         shape = RoundedCornerShape(12.dp),
@@ -301,7 +304,7 @@ private fun DevicesListTab() {
                             }
                             Spacer(Modifier.height(4.dp))
                             Text("ID: ${device.optString("hardware_id").take(25)}...", fontSize = 10.sp, color = Color(0xFF6B7280))
-                            Text("Type: $licenseType | Expiry: $expiry", fontSize = 11.sp, color = Color(0xFF374151))
+                            Text("Type: $licenseType | $expiry", fontSize = 11.sp, color = Color(0xFF374151))
                             Spacer(Modifier.height(10.dp))
                             
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
