@@ -10,12 +10,6 @@ import java.nio.ByteOrder
 import java.nio.channels.FileChannel
 import kotlin.math.sqrt
 
-/**
- * MobileFaceNet Face Embedding Helper (Qualcomm model)
- * - Model: mobile_facenet.tflite
- * - Input: [1, 112, 112, 3] float32 (normalized to [-1, 1])
- * - Output: [1, N] float32 (N=512 for Qualcomm, or 192 for older)
- */
 object FaceEmbeddingHelper {
 
     private const val TAG = "FaceEmbedding"
@@ -26,6 +20,7 @@ object FaceEmbeddingHelper {
     private var inputWidth = DEFAULT_INPUT_SIZE
     private var inputHeight = DEFAULT_INPUT_SIZE
     private var embeddingSize = 512
+    private var isNHWC = true
     private var isReady = false
 
     fun init(context: Context) {
@@ -39,67 +34,78 @@ object FaceEmbeddingHelper {
                 assetFile.startOffset,
                 assetFile.declaredLength
             )
-            val options = Interpreter.Options().apply { setNumThreads(4) }
-            interpreter = Interpreter(mappedByteBuffer, options)
+            interpreter = Interpreter(mappedByteBuffer, Interpreter.Options().apply { setNumThreads(4) })
 
-            // Detect input shape
             val inputShape = interpreter!!.getInputTensor(0).shape()
             Log.d(TAG, "Input shape: ${inputShape.toList()}")
-            // Usually [1, 112, 112, 3] (NHWC) or [1, 3, 112, 112] (NCHW)
-            when {
-                inputShape.size == 4 -> {
-                    if (inputShape[1] == 3 || inputShape[1] == 1) {
-                        // NCHW
-                        inputHeight = inputShape[2]
-                        inputWidth = inputShape[3]
-                    } else {
-                        // NHWC
-                        inputHeight = inputShape[1]
-                        inputWidth = inputShape[2]
-                    }
+            if (inputShape.size == 4) {
+                if (inputShape[1] == 3) {
+                    isNHWC = false
+                    inputHeight = inputShape[2]
+                    inputWidth = inputShape[3]
+                } else {
+                    isNHWC = true
+                    inputHeight = inputShape[1]
+                    inputWidth = inputShape[2]
                 }
             }
 
-            // Detect output shape
-            val outputShape = interpreter!!.getOutputTensor(0).shape()
-            Log.d(TAG, "Output shape: ${outputShape.toList()}")
-            embeddingSize = outputShape.last()
-
+            embeddingSize = interpreter!!.getOutputTensor(0).shape().last()
             isReady = true
-            Log.d(TAG, "Model ready: ${inputWidth}x${inputHeight}, emb=$embeddingSize")
+            Log.d(TAG, "Model ready: ${inputWidth}x${inputHeight}, emb=$embeddingSize, NHWC=$isNHWC")
         } catch (e: Exception) {
             Log.e(TAG, "Model init failed", e)
-            e.printStackTrace()
         }
     }
 
     fun isReady(): Boolean = isReady
 
-    /**
-     * Extract L2-normalized embedding from face bitmap
-     */
     fun getEmbedding(bitmap: Bitmap): FloatArray? {
         val interp = interpreter ?: return null
         if (!isReady) return null
-        return try {
-            val resized = Bitmap.createScaledBitmap(bitmap, inputWidth, inputHeight, true)
 
-            val inputBuffer = ByteBuffer.allocateDirect(
-                1 * inputHeight * inputWidth * 3 * 4
-            )
+        var resized: Bitmap? = null
+        return try {
+            // 🛠️ FIX 1: Pehle chhota karein (memory bachane ke liye)
+            // Agar bitmap bara hai to pehle 224x224 par scale karein
+            val smallBitmap = if (bitmap.width > 512 || bitmap.height > 512) {
+                val scale = 512f / maxOf(bitmap.width, bitmap.height)
+                val newW = (bitmap.width * scale).toInt()
+                val newH = (bitmap.height * scale).toInt()
+                Bitmap.createScaledBitmap(bitmap, newW, newH, true)
+            } else {
+                bitmap
+            }
+
+            // 🛠️ FIX 2: Ab 112x112 par scale karein
+            resized = Bitmap.createScaledBitmap(smallBitmap, inputWidth, inputHeight, true)
+
+            val inputBuffer = ByteBuffer.allocateDirect(1 * inputHeight * inputWidth * 3 * 4)
             inputBuffer.order(ByteOrder.nativeOrder())
             inputBuffer.rewind()
 
             val pixels = IntArray(inputWidth * inputHeight)
             resized.getPixels(pixels, 0, inputWidth, 0, 0, inputWidth, inputHeight)
 
-            for (pixel in pixels) {
-                val r = ((pixel shr 16) and 0xFF) / 127.5f - 1.0f
-                val g = ((pixel shr 8) and 0xFF) / 127.5f - 1.0f
-                val b = (pixel and 0xFF) / 127.5f - 1.0f
-                inputBuffer.putFloat(r)
-                inputBuffer.putFloat(g)
-                inputBuffer.putFloat(b)
+            // 🛠️ FIX 3: NHWC / NCHW dono handle karein
+            if (isNHWC) {
+                for (pixel in pixels) {
+                    inputBuffer.putFloat(((pixel shr 16) and 0xFF) / 127.5f - 1.0f)
+                    inputBuffer.putFloat(((pixel shr 8) and 0xFF) / 127.5f - 1.0f)
+                    inputBuffer.putFloat((pixel and 0xFF) / 127.5f - 1.0f)
+                }
+            } else {
+                val r = FloatArray(pixels.size)
+                val g = FloatArray(pixels.size)
+                val b = FloatArray(pixels.size)
+                for (i in pixels.indices) {
+                    r[i] = ((pixels[i] shr 16) and 0xFF) / 127.5f - 1.0f
+                    g[i] = ((pixels[i] shr 8) and 0xFF) / 127.5f - 1.0f
+                    b[i] = (pixels[i] and 0xFF) / 127.5f - 1.0f
+                }
+                for (v in r) inputBuffer.putFloat(v)
+                for (v in g) inputBuffer.putFloat(v)
+                for (v in b) inputBuffer.putFloat(v)
             }
             inputBuffer.rewind()
 
@@ -109,10 +115,14 @@ object FaceEmbeddingHelper {
             val emb = output[0]
             val norm = sqrt(emb.sumOf { (it * it).toDouble() }).toFloat()
             if (norm > 0f) for (i in emb.indices) emb[i] /= norm
+            Log.d(TAG, "✅ Embedding OK: ${emb.size} values")
             emb
         } catch (e: Exception) {
-            Log.e(TAG, "Embedding failed", e)
+            Log.e(TAG, "❌ Embedding failed", e)
             null
+        } finally {
+            // Memory free karein
+            resized?.recycle()
         }
     }
 
