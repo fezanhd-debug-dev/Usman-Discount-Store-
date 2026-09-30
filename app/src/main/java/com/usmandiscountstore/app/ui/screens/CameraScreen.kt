@@ -15,11 +15,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Camera
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,20 +35,10 @@ import com.google.mlkit.vision.face.Face
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.usmandiscountstore.app.ui.theme.BrandGreen
-import com.usmandiscountstore.app.ui.theme.BrandGreenLight
-import com.usmandiscountstore.app.ui.theme.TextDark
-import com.usmandiscountstore.app.ui.theme.TextGray
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
-/**
- * Camera Screen — Live selfie capture with face detection.
- *
- * @param title Screen title
- * @param onPhotoCaptured Called with saved file path
- * @param onBack Back button
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CameraScreen(
@@ -77,9 +65,8 @@ fun CameraScreen(
     }
 
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
-    var faceCount by remember { mutableIntStateOf(0) }
-    var faceDetectorReady by remember { mutableStateOf(false) }
     var statusMsg by remember { mutableStateOf<String?>(null) }
+    var isProcessing by remember { mutableStateOf(false) }
 
     val faceDetector = remember {
         FaceDetection.getClient(
@@ -124,13 +111,13 @@ fun CameraScreen(
                         val preview = Preview.Builder().build().also {
                             it.setSurfaceProvider(previewView.surfaceProvider)
                         }
+                        // 🛠️ FIX: High quality + auto flash + chhota resolution
                         val capture = ImageCapture.Builder()
-                            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                            .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+                            .setTargetResolution(android.util.Size(640, 480))
+                            .setFlashMode(ImageCapture.FLASH_MODE_AUTO)
                             .build()
                         imageCapture = capture
-
-                        // Add face analysis via ImageAnalysis? For simplicity we skip continuous analysis
-                        // and only detect on captured photo.
 
                         try {
                             cameraProvider.unbindAll()
@@ -157,7 +144,6 @@ fun CameraScreen(
                     .border(3.dp, BrandGreen.copy(alpha = 0.7f), CircleShape)
             )
 
-            // Bottom capture button
             Column(
                 Modifier
                     .align(Alignment.BottomCenter)
@@ -174,7 +160,9 @@ fun CameraScreen(
                 Spacer(Modifier.height(12.dp))
                 Button(
                     onClick = {
+                        if (isProcessing) return@Button
                         val capture = imageCapture ?: return@Button
+                        isProcessing = true
                         statusMsg = "Processing..."
 
                         val dir = File(context.getExternalFilesDir(null), "staff_selfies")
@@ -190,16 +178,17 @@ fun CameraScreen(
                             ContextCompat.getMainExecutor(context),
                             object : ImageCapture.OnImageSavedCallback {
                                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                                    // Analyze face
                                     val img = InputImage.fromFilePath(context, Uri.fromFile(file))
                                     faceDetector.process(img)
                                         .addOnSuccessListener { faces: List<Face> ->
                                             if (faces.isEmpty()) {
                                                 file.delete()
                                                 statusMsg = "❌ Chehra nazar nahi aya. Dobara try karein."
+                                                isProcessing = false
                                             } else if (faces.size > 1) {
                                                 file.delete()
                                                 statusMsg = "❌ Ek se zyada chehre hain. Akele aayein."
+                                                isProcessing = false
                                             } else {
                                                 val f = faces[0]
                                                 val leftEye = f.leftEyeOpenProbability ?: 1f
@@ -207,6 +196,7 @@ fun CameraScreen(
                                                 if (leftEye < 0.2f && rightEye < 0.2f) {
                                                     file.delete()
                                                     statusMsg = "❌ Aankhein khuli rakhein."
+                                                    isProcessing = false
                                                 } else {
                                                     statusMsg = "✅ Photo capture ho gayi"
                                                     onPhotoCaptured(file)
@@ -216,11 +206,13 @@ fun CameraScreen(
                                         .addOnFailureListener {
                                             file.delete()
                                             statusMsg = "❌ Face detect fail"
+                                            isProcessing = false
                                         }
                                 }
 
                                 override fun onError(e: ImageCaptureException) {
                                     statusMsg = "❌ Photo capture fail: ${e.message}"
+                                    isProcessing = false
                                 }
                             }
                         )
@@ -228,9 +220,18 @@ fun CameraScreen(
                     modifier = Modifier.height(60.dp).width(60.dp),
                     shape = CircleShape,
                     colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
-                    contentPadding = PaddingValues(0.dp)
+                    contentPadding = PaddingValues(0.dp),
+                    enabled = !isProcessing
                 ) {
-                    Icon(Icons.Default.Camera, "Capture", modifier = Modifier.size(28.dp))
+                    if (isProcessing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(Icons.Default.Camera, "Capture", modifier = Modifier.size(28.dp))
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
                 statusMsg?.let {
