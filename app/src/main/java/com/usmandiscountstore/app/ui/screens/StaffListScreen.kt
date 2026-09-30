@@ -222,15 +222,51 @@ private fun AddEditStaffDialog(
             onPhotoCaptured = { file ->
                 scope.launch {
                     processing = true
+                    error = null
                     try {
-                        val bmp = BitmapFactory.decodeFile(file.absolutePath)
-                        val emb = withContext(Dispatchers.Default) { FaceEmbeddingHelper.getEmbedding(bmp) }
+                        // 🛠️ FIX: Photo ko chhota karke decode karein (memory bachane ke liye)
+                        val boundsOptions = BitmapFactory.Options().apply {
+                            inJustDecodeBounds = true
+                        }
+                        BitmapFactory.decodeFile(file.absolutePath, boundsOptions)
+                        
+                        // Calculate inSampleSize (photo ko ~512px tak le aayein)
+                        var sampleSize = 1
+                        val maxDim = maxOf(boundsOptions.outWidth, boundsOptions.outHeight)
+                        while (maxDim / sampleSize > 512) {
+                            sampleSize *= 2
+                        }
+                        
+                        val decodeOptions = BitmapFactory.Options().apply {
+                            inSampleSize = sampleSize
+                            inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
+                        }
+                        val bmp = BitmapFactory.decodeFile(file.absolutePath, decodeOptions)
+                        
+                        if (bmp == null) {
+                            error = "Photo load nahi hui. Dobara try karein."
+                            processing = false
+                            showCamera = false
+                            return@launch
+                        }
+                        
+                        val emb = withContext(Dispatchers.Default) { 
+                            FaceEmbeddingHelper.getEmbedding(bmp) 
+                        }
+                        
                         if (emb != null) {
                             photoPath = file.absolutePath
                             faceEmbedding = FaceEmbeddingHelper.embedToString(emb)
-                        } else error = Lang.t("face_error")
-                    } catch (e: Exception) { error = e.message }
-                    finally { processing = false; showCamera = false }
+                            error = null
+                        } else {
+                            error = "Chehra detect nahi hua. Achi roshni mein dobara try karein."
+                        }
+                    } catch (e: Exception) {
+                        error = "Error: ${e.message}"
+                    } finally {
+                        processing = false
+                        showCamera = false
+                    }
                 }
             },
             onBack = { showCamera = false }
