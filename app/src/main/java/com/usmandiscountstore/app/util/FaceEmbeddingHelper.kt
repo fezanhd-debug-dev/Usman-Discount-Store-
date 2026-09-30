@@ -61,13 +61,18 @@ object FaceEmbeddingHelper {
     fun isReady(): Boolean = isReady
 
     fun getEmbedding(bitmap: Bitmap): FloatArray? {
-        val interp = interpreter ?: return null
-        if (!isReady) return null
+        val interp = interpreter ?: run {
+            Log.e(TAG, "Interpreter null")
+            return null
+        }
+        if (!isReady) {
+            Log.e(TAG, "Model not ready")
+            return null
+        }
 
         var resized: Bitmap? = null
         return try {
-            // 🛠️ FIX 1: Pehle chhota karein (memory bachane ke liye)
-            // Agar bitmap bara hai to pehle 224x224 par scale karein
+            // Pehle bari bitmap ko chhota karein
             val smallBitmap = if (bitmap.width > 512 || bitmap.height > 512) {
                 val scale = 512f / maxOf(bitmap.width, bitmap.height)
                 val newW = (bitmap.width * scale).toInt()
@@ -77,7 +82,6 @@ object FaceEmbeddingHelper {
                 bitmap
             }
 
-            // 🛠️ FIX 2: Ab 112x112 par scale karein
             resized = Bitmap.createScaledBitmap(smallBitmap, inputWidth, inputHeight, true)
 
             val inputBuffer = ByteBuffer.allocateDirect(1 * inputHeight * inputWidth * 3 * 4)
@@ -87,7 +91,6 @@ object FaceEmbeddingHelper {
             val pixels = IntArray(inputWidth * inputHeight)
             resized.getPixels(pixels, 0, inputWidth, 0, 0, inputWidth, inputHeight)
 
-            // 🛠️ FIX 3: NHWC / NCHW dono handle karein
             if (isNHWC) {
                 for (pixel in pixels) {
                     inputBuffer.putFloat(((pixel shr 16) and 0xFF) / 127.5f - 1.0f)
@@ -115,14 +118,14 @@ object FaceEmbeddingHelper {
             val emb = output[0]
             val norm = sqrt(emb.sumOf { (it * it).toDouble() }).toFloat()
             if (norm > 0f) for (i in emb.indices) emb[i] /= norm
-            Log.d(TAG, "✅ Embedding OK: ${emb.size} values")
+            Log.d(TAG, "Embedding OK: ${emb.size} values")
             emb
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Embedding failed", e)
+            Log.e(TAG, "Embedding failed", e)
+            e.printStackTrace()
             null
         } finally {
-            // Memory free karein
-            resized?.recycle()
+            try { resized?.recycle() } catch (_: Exception) {}
         }
     }
 
