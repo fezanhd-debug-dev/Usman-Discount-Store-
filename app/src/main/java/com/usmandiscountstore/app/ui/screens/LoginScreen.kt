@@ -22,8 +22,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.usmandiscountstore.app.data.local.AppDatabase
 import com.usmandiscountstore.app.ui.theme.*
 import com.usmandiscountstore.app.util.Lang
 import com.usmandiscountstore.app.util.PasswordHelper
@@ -41,6 +43,16 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
+
+    // 🛠️ NEW: Room DB se store name + address live observe karein
+    val storeSettingsFlow = remember {
+        AppDatabase.get(context).storeSettingsDao().getFlow()
+    }
+    val storeSettings by storeSettingsFlow.collectAsState(initial = null)
+    val storeName = storeSettings?.storeName?.takeIf { it.isNotBlank() }
+        ?: Lang.t("app_name")
+    val storeAddress = storeSettings?.storeAddress?.takeIf { it.isNotBlank() }
+        ?: Lang.t("app_address")
 
     // Secret 21-tap counter
     var tapCount by remember { mutableIntStateOf(0) }
@@ -65,13 +77,36 @@ fun LoginScreen(
                 }
             }
 
+            // 🛠️ Logo automatically store initials dikhayega
             AppLogo(size = 100.dp)
 
             Spacer(Modifier.height(18.dp))
-            Text(Lang.t("app_name"), fontSize = 26.sp, fontWeight = FontWeight.Bold, color = TextDark)
-            Text(Lang.t("app_address"), fontSize = 14.sp, color = TextGray)
-            Text(Lang.t("app_tagline"), fontSize = 12.sp, color = BrandGreen, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(32.dp))
+            Text(
+                storeName,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextDark,
+                maxLines = 2,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                storeAddress,
+                fontSize = 13.sp,
+                color = TextGray,
+                maxLines = 1,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                Lang.t("app_tagline"),
+                fontSize = 12.sp,
+                color = BrandGreen,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(28.dp))
 
             Card(shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFE8EEF5)),
@@ -164,12 +199,10 @@ fun LoginScreen(
             // Secret 21-tap on copyright
             CopyrightFooter(onSecretTap = {
                 val now = System.currentTimeMillis()
-                // Reset counter if more than 5 seconds gap (21 taps ke liye 5 sec time diya hai)
                 if (now - lastTapTime > 5000L) tapCount = 0
                 lastTapTime = now
                 tapCount++
 
-                // Feedback starts from 18th tap (18, 19, 20)
                 if (tapCount in listOf(18, 19, 20)) {
                     Toast.makeText(context, "${21 - tapCount} taps to unlock...", Toast.LENGTH_SHORT).show()
                 }
