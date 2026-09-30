@@ -49,6 +49,16 @@ fun DashboardScreen(
     val isAdmin = role == "ADMIN"
     val todayDate = SimpleDateFormat("EEEE, dd MMMM yyyy", Locale.US).format(Date())
 
+    // 🛠️ FIX: Room DB se store name live observe karein
+    val storeSettingsFlow = remember {
+        AppDatabase.get(context).storeSettingsDao().getFlow()
+    }
+    val storeSettings by storeSettingsFlow.collectAsState(initial = null)
+    val storeName = storeSettings?.storeName?.takeIf { it.isNotBlank() }
+        ?: Lang.t("app_name")
+    val storeAddress = storeSettings?.storeAddress?.takeIf { it.isNotBlank() }
+        ?: Lang.t("app_address")
+
     var pendingLeaves by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) {
         AppDatabase.get(context).leaveDao().getPendingCount()
@@ -63,8 +73,19 @@ fun DashboardScreen(
                         AppLogoSmall(size = 36.dp)
                         Spacer(Modifier.width(10.dp))
                         Column {
-                            Text(Lang.t("app_name"), fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
-                            Text(Lang.t("app_address"), fontSize = 10.sp, color = Color.White.copy(alpha = 0.85f))
+                            Text(
+                                storeName,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                maxLines = 1
+                            )
+                            Text(
+                                storeAddress,
+                                fontSize = 10.sp,
+                                color = Color.White.copy(alpha = 0.85f),
+                                maxLines = 1
+                            )
                         }
                     }
                 },
