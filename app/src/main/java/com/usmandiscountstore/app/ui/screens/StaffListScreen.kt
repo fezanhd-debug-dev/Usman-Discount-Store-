@@ -29,9 +29,7 @@ import com.usmandiscountstore.app.data.repository.StaffRepository
 import com.usmandiscountstore.app.ui.theme.*
 import com.usmandiscountstore.app.util.FaceEmbeddingHelper
 import com.usmandiscountstore.app.util.Lang
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -224,42 +222,41 @@ private fun AddEditStaffDialog(
                     processing = true
                     error = null
                     try {
-                        // 🛠️ FIX: Photo ko chhota karke decode karein (memory bachane ke liye)
+                        // Photo ko chhota karke decode karein (memory bachane ke liye)
                         val boundsOptions = BitmapFactory.Options().apply {
                             inJustDecodeBounds = true
                         }
                         BitmapFactory.decodeFile(file.absolutePath, boundsOptions)
-                        
-                        // Calculate inSampleSize (photo ko ~512px tak le aayein)
+
+                        // Calculate inSampleSize (photo ko ~1024px tak le aayein - face detect ke liye)
                         var sampleSize = 1
                         val maxDim = maxOf(boundsOptions.outWidth, boundsOptions.outHeight)
-                        while (maxDim / sampleSize > 512) {
+                        while (maxDim / sampleSize > 1024) {
                             sampleSize *= 2
                         }
-                        
+
                         val decodeOptions = BitmapFactory.Options().apply {
                             inSampleSize = sampleSize
                             inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
                         }
                         val bmp = BitmapFactory.decodeFile(file.absolutePath, decodeOptions)
-                        
+
                         if (bmp == null) {
                             error = "Photo load nahi hui. Dobara try karein."
                             processing = false
                             showCamera = false
                             return@launch
                         }
-                        
-                        val emb = withContext(Dispatchers.Default) { 
-                            FaceEmbeddingHelper.getEmbedding(bmp) 
-                        }
-                        
+
+                        // 🛠️ NAYA: Face detect karke crop karein, phir embedding banayein
+                        val emb = FaceEmbeddingHelper.getEmbeddingFromPhoto(context, bmp)
+
                         if (emb != null) {
                             photoPath = file.absolutePath
                             faceEmbedding = FaceEmbeddingHelper.embedToString(emb)
                             error = null
                         } else {
-                            error = "Chehra detect nahi hua. Achi roshni mein dobara try karein."
+                            error = "Chehra detect nahi hua. Achi roshni mein, seedha camera ke saamne kharein."
                         }
                     } catch (e: Exception) {
                         error = "Error: ${e.message}"
